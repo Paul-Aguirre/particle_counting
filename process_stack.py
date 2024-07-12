@@ -1,5 +1,5 @@
 import numpy as np
-from skimage import filters, measure, morphology
+from skimage import filters, measure, morphology, draw
 
 
 def process_stack(
@@ -23,12 +23,23 @@ def process_stack(
 
     props = measure.regionprops(labels)
 
+    bboxes3d = np.zeros(binary.shape, dtype=np.uint8)
+    for prop in props:
+        minz, minr, minc, maxz, maxr, maxc = prop.bbox
+        zz, rr, cc = draw.rectangle(
+            start=(minz, minr, minc),
+            end=(maxz, maxr, maxc),
+            shape=binary.shape,
+        )
+        bboxes3d[zz, rr, cc] = 1
+
     results = {
         "otsu_threshold": thresh,
         "binary": binary,
         "binary_separated": binary_separated,
         "labels": labels,
         "props": props,
+        "bboxes3d": bboxes3d,
     }
 
     return results
