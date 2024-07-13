@@ -12,7 +12,7 @@ path = askopenfilename()
 
 image_stack, metadata = load_image_stack(path)
 
-results = process_stack(image_stack, metadata, 1)
+results = process_stack(image_stack, metadata, 1, full_bbox=False)
 
 multi_slice_viewer(
     volume=results["binary_separated"],

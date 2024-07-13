@@ -6,6 +6,7 @@ def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
     particle_diameter: float,
+    full_bbox: bool = True,
 ) -> dict:
     # Isolating the particles by thresholding
     thresh = filters.threshold_otsu(image_stack)
@@ -24,14 +25,26 @@ def process_stack(
     props = measure.regionprops(labels)
 
     bboxes3d = np.zeros(binary.shape, dtype=np.uint8)
-    for prop in props:
-        minz, minr, minc, maxz, maxr, maxc = prop.bbox
-        zz, rr, cc = draw.rectangle(
-            start=(minz, minr, minc),
-            end=(maxz, maxr, maxc),
-            shape=binary.shape,
-        )
-        bboxes3d[zz, rr, cc] = 1
+
+    if full_bbox:
+        for prop in props:
+            minz, minr, minc, maxz, maxr, maxc = prop.bbox
+            zz, rr, cc = draw.rectangle(
+                start=(minz, minr, minc),
+                end=(maxz, maxr, maxc),
+                shape=binary.shape,
+            )
+            bboxes3d[zz, rr, cc] = 1
+    else:
+        for prop in props:
+            minz, minr, minc, maxz, maxr, maxc = prop.bbox
+            for z in range(minz, maxz):
+                rr, cc = draw.rectangle_perimeter(
+                    start=(minr, minc),
+                    end=(maxr, maxc),
+                    shape=binary.shape[1:],
+                )
+                bboxes3d[z, rr, cc] = 1
 
     results = {
         "otsu_threshold": thresh,
