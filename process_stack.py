@@ -22,7 +22,14 @@ def process_stack(
     # Detecting and labeling particles
     labels = measure.label(binary_separated)
 
-    props = measure.regionprops(labels)
+    props = measure.regionprops(
+        labels,
+        spacing=(
+            np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
+            metadata["pixel_microns"],  # y
+            metadata["pixel_microns"],  # x
+        ),
+    )
 
     bboxes3d = np.zeros(binary.shape, dtype=np.uint8)
 
