@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from load_image_stack import load_image_stack
 from process_stack import process_stack
 from multi_slice_viewer import multi_slice_viewer
+from particle_distributions import particle_distributions
 
 
 # def main() -> None:
@@ -36,6 +37,15 @@ particle_concentration = num_particles / total_volume
 print(f"Total volume analysed: {total_volume:.3f} µm^3")
 print(f"Number of particles detected: {num_particles}")
 print(f"Particle concentration: {particle_concentration:.7f} particles/µm^3")
+
+particle_distributions(
+    results,
+    bins_xy=20,
+    bins_z=20,
+    bins_pixels=100,
+    bins_area=100,
+    bins_diameter=100,
+)
 
 # if __name__ == "__main__":
 #     main()
