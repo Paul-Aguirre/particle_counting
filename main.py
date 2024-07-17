@@ -40,11 +40,13 @@ print(f"Particle concentration: {particle_concentration:.7f} particles/µm^3")
 
 particle_distributions(
     results,
+    metadata,
     bins_xy=20,
     bins_z=20,
     bins_pixels=100,
     bins_area=100,
     bins_diameter=100,
+    boxplot_config={"showfliers": False},
 )
 
 # if __name__ == "__main__":
