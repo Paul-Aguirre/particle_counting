@@ -47,6 +47,7 @@ particle_distributions(
     bins_area=100,
     bins_diameter=100,
     boxplot_config={"showfliers": False},
+    verbose=True,
 )
 
 # if __name__ == "__main__":

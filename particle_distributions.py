@@ -1,7 +1,57 @@
 from typing import Sequence
 
+import matplotlib.axes
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
+
+
+def hist_freq_cum(
+    ax: matplotlib.axes.Axes,
+    data: list | np.ndarray,
+    bins: int | Sequence | str = 10,
+    title: str | None = None,
+) -> tuple:
+    """Plots histogramm and cumulative frequency plot on a given
+    matplotlib axes. Adds a secondary y axis to read the frequency on.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axes onto which the histogram is
+        plotted.
+        data (list | numpy.ndarray): Data used for tracing the histogram.
+        bins (int | Sequence | str, optional): Histogram bins. Passed
+        down to ax.hist() method. Defaults to 10.
+        title (str | None, optional): Sets the title of the ax.
+        Defaults to None.
+
+    Returns:
+        tuple: A tuple containing:
+            - the cumulated values of the histogram, not normalised.
+            - the bins edges
+            - the secondary y axis
+    """
+    _, bins, _ = ax.hist(
+        data,
+        bins=bins,
+    )
+    cum_data, *_ = ax.hist(
+        data,
+        bins=bins,
+        cumulative=True,
+        histtype="step",
+        color="red",
+    )
+    secax = ax.secondary_yaxis(
+        "right",
+        functions=(
+            lambda x: x / np.max(cum_data),
+            lambda x: x * np.max(cum_data),
+        ),
+    )
+    ax.grid(True)
+    if title:
+        ax.set_title(title)
+    return cum_data, bins, secax
 
 
 def particle_distributions(
@@ -17,6 +67,7 @@ def particle_distributions(
         "showbox": True,
         "showfliers": True,
     },
+    verbose: bool = False,
 ):
     """Plots the distributions of characteristic values of the
     particles. Characteristic values are dimensions along axes x, y and
@@ -39,6 +90,8 @@ def particle_distributions(
         histogram. Defaults to 10.
         bins_diameter (int | Sequence | str, optional): bins for
         diameter histogram. Defaults to 10.
+        verbose (bool, optionnal): If True, prints the values of the
+        cumulative frequency plot. Defaults to False.
     """
     x = []
     y = []
@@ -55,6 +108,7 @@ def particle_distributions(
         nums_pixels.append(prop.num_pixels)
         diameters.append(prop.equivalent_diameter_area)
 
+    # normalizing x, y and z for readability
     x = np.array(x, dtype=np.float32) * metadata["pixel_microns"]
     y = np.array(y, dtype=np.float32) * metadata["pixel_microns"]
     z = np.array(z, dtype=np.float32) * np.abs(
@@ -64,75 +118,85 @@ def particle_distributions(
     nums_pixels = np.array(nums_pixels, dtype=np.float32)
     diameters = np.array(diameters, dtype=np.float32)
 
-    fig1, axs1 = plt.subplots(3, 3)
-    # fig1.tight_layout()
-    axs1[0, 0].hist(nums_pixels, bins=bins_pixels)
-    axs1[0, 0].set_title("number of pixels")
+    fig1, axs1 = plt.subplots(2, 3)
+    cum_num_pixels, bins_pixels, _ = hist_freq_cum(
+        axs1[0, 0], nums_pixels, bins_pixels, "number of pixels"
+    )
     axs1[0, 0].set_ylabel("count")
-    axs1[1, 0].plot(
-        np.sort(nums_pixels),
-        np.arange(1, len(nums_pixels) + 1) / len(nums_pixels),
-        # cumulative frequencies
+    axs1[1, 0].boxplot(
+        nums_pixels,
+        tick_labels=["number of pixels"],
+        **boxplot_config,
     )
-    axs1[2, 0].boxplot(nums_pixels, **boxplot_config)
 
-    axs1[0, 1].hist(areas, bins=bins_area)
-    axs1[0, 1].set_title("area")
-    axs1[1, 1].plot(
-        np.sort(areas),
-        np.arange(1, len(areas) + 1) / len(areas),
+    cum_area, bins_area, _ = hist_freq_cum(axs1[0, 1], areas, bins_area, "area")
+    axs1[1, 1].boxplot(areas, tick_labels=["area"], **boxplot_config)
+
+    cum_diameter, bins_diameter, secax_diameter = hist_freq_cum(
+        axs1[0, 2], diameters, bins_diameter, "equivalent area diameter"
     )
-    axs1[2, 1].boxplot(areas, **boxplot_config)
+    secax_diameter.set_ylabel("Cumulative frequency")
+    axs1[1, 2].boxplot(diameters, tick_labels=["diameter"], **boxplot_config)
 
-    axs1[0, 2].hist(diameters, bins=bins_diameter)
-    axs1[0, 2].set_title("equivalent area diameter")
-    axs1[1, 2].plot(
-        np.sort(diameters),
-        np.arange(1, len(diameters) + 1) / len(diameters),
-    )
-    axs1[2, 2].boxplot(diameters, **boxplot_config)
+    fig2, axs2 = plt.subplots(2, 3)
 
-    fig2, axs2 = plt.subplots(3, 3)
-    gs = axs2[2, 0].get_gridspec()
-    for ax in axs2[2, :2]:
-        ax.remove()
-    axs2boxplot_xy = fig2.add_subplot(gs[2, :2])
-    # fig2.tight_layout()
-
-    # TODO: scalling x, y & z by the resolution for better lisibility
-    # TODO: print the tables of the cumulated frequency graphs to get exact values
-    axs2[0, 0].hist(x, bins=bins_xy)
-    axs2[0, 0].set_title("x")
+    cum_x, bins_xy, _ = hist_freq_cum(axs2[0, 0], x, bins_xy, "x")
     axs2[0, 0].set_ylabel("count")
-    axs2[1, 0].plot(
-        np.sort(x),
-        np.arange(1, len(x) + 1) / len(x),
-        marker="o",
-        linestyle="-",
-    )
-    axs2[1, 0].set_ylabel("cumulated frequencies")
 
-    axs2[0, 1].hist(y, bins=bins_xy)
-    axs2[0, 1].set_title("y")
+    cum_y, bins_xy, _ = hist_freq_cum(axs2[0, 1], y, bins_xy, "y")
     axs2[0, 1].set_xlabel("Size in microns")
-    axs2[1, 1].plot(
-        np.sort(y),
-        np.arange(1, len(y) + 1) / len(y),
-        marker="o",
-        linestyle="-",
-    )
 
-    axs2[0, 2].hist(z, bins=bins_z)
-    axs2[0, 2].set_title("z")
-    axs2[1, 2].plot(
-        np.sort(z),
-        np.arange(1, len(z) + 1) / len(z),
-        marker="o",
-        linestyle="-",
-    )
-    axs2[2, 2].boxplot(z, tick_labels=["z"], **boxplot_config)
+    cum_z, bins_z, secax_z = hist_freq_cum(axs2[0, 2], z, bins_z, "z")
+    secax_z.set_ylabel("cumulated frequencies")
+    axs2[1, 2].boxplot(z, tick_labels=["z"], **boxplot_config)
 
+    # plotting x and y boxplots together because their values are close
+    gs = axs2[1, 0].get_gridspec()
+    for ax in axs2[1, :2]:
+        ax.remove()
+    axs2boxplot_xy = fig2.add_subplot(gs[1, :2])
     axs2boxplot_xy.boxplot([x, y], tick_labels=["x", "y"], **boxplot_config)
     axs2boxplot_xy.set_ylabel("Size in microns")
 
     plt.show()
+    if verbose:
+        binss = [
+            bins_pixels,
+            bins_area,
+            bins_diameter,
+            bins_xy,
+            bins_xy,
+            bins_z,
+        ]
+        cum_hists = [
+            cum_num_pixels,
+            cum_area,
+            cum_diameter,
+            cum_x,
+            cum_y,
+            cum_z,
+        ]
+        measurement_strs = [
+            "num_pixels",
+            "area",
+            "diameter",
+            "x",
+            "y",
+            "z",
+        ]
+        for bins, cum_hist, measurement_str in zip(
+            binss,
+            cum_hists,
+            measurement_strs,
+        ):
+            print(measurement_str)
+            print("bins, cumulative frequency")
+            print(
+                np.concatenate(
+                    [
+                        bins[:-1, np.newaxis],
+                        cum_hist[:, np.newaxis] / np.max(cum_hist),
+                    ],
+                    axis=1,
+                )
+            )
