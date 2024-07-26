@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 def hist_freq_cum(
     ax: matplotlib.axes.Axes,
     data: list | np.ndarray,
-    bins: int | Sequence | str = 10,
+    bins: int | Sequence | str | np.ndarray | None = 10,
     title: str | None = None,
 ) -> tuple:
     """Plots histogramm and cumulative frequency plot on a given
@@ -19,7 +19,7 @@ def hist_freq_cum(
         ax (matplotlib.axes.Axes): The axes onto which the histogram is
         plotted.
         data (list | numpy.ndarray): Data used for tracing the histogram.
-        bins (int | Sequence | str, optional): Histogram bins. Passed
+        bins (int | Sequence | str | numpy.ndarray, optional): Histogram bins. Passed
         down to ax.hist() method. Defaults to 10.
         title (str | None, optional): Sets the title of the ax.
         Defaults to None.
@@ -93,6 +93,18 @@ def particle_distributions(
         verbose (bool, optionnal): If True, prints the values of the
         cumulative frequency plot. Defaults to False.
     """
+
+    # Saved for later use:
+    # ------------------------------------------------------------------
+    # results_key: str = "props",
+
+    # for prop in results[results_key]:
+
+    # results_key(str, optional): key at which the desired region
+    # properties are stored in the results dictionnary.
+    # Defaults to "props".
+    # ------------------------------------------------------------------
+
     x = []
     y = []
     z = []
@@ -200,3 +212,5 @@ def particle_distributions(
                     axis=1,
                 )
             )
+
+    return x, y, z

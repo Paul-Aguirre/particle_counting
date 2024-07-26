@@ -5,8 +5,9 @@ from skimage import filters, measure, morphology, draw
 def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
-    particle_diameter: float,
+    particle_diameter: float,  # in microns
     full_bbox: bool = True,
+    spacing: tuple[float, float, float] | None = None,
 ) -> dict:
     # Isolating the particles by thresholding
     thresh = filters.threshold_otsu(image_stack)
@@ -53,12 +54,21 @@ def process_stack(
                 )
                 bboxes3d[z, rr, cc] = 1
 
+    if spacing:
+        spacing_corrected_props = measure.regionprops(
+            labels,
+            spacing=spacing,
+        )
+    else:
+        spacing_corrected_props = None
+
     results = {
         "otsu_threshold": thresh,
         "binary": binary,
         "binary_separated": binary_separated,
         "labels": labels,
         "props": props,
+        "spacing_corrected_props": spacing_corrected_props,
         "bboxes3d": bboxes3d,
     }
 

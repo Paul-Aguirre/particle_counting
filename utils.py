@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def depth_of_field(
     *,
     numerical_aperture: float,
@@ -30,3 +33,31 @@ def depth_of_field(
         + refraction_index * smallest_dist / magnification / numerical_aperture
     )
     return d_tot
+
+
+def z_resolution(
+    diameter: float,
+    num_pixels: float,
+    x_resolution: float,
+    y_resolution: float,
+):
+    """Computes the resolution along the z-axis for a that is to be used
+    to make a shape spherical when it has been streched along the
+    z-axis. This function is meant as a correction factor calculator.
+
+    Args:
+        diameter (float): The expected diameter of the sphere.
+        num_pixels (float): The number of pixels included in the image
+        of the sphere.
+        x_resolution (float): The resolution along the x-axis.
+        y_resolution (float): The resolution along the y-axis.
+
+    Returns:
+        float: The computed resolution along the z-axis.
+    """
+    # fmt: off
+    return (
+        (4 * np.pi * diameter ** 3)
+        / (27 * num_pixels * x_resolution * y_resolution)
+        )
+    # fmt: on
