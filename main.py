@@ -18,7 +18,8 @@ image_stack, metadata = load_image_stack(path)
 results = process_stack(image_stack, metadata, 1, full_bbox=False)
 
 multi_slice_viewer(
-    volume=results["binary_separated"],
+    # volume=results["binary"],
+    volume=image_stack,
     bboxes=results["bboxes3d"],
     bbox_alpha=0.5,
 )
@@ -89,6 +90,8 @@ print(
     "Particle concentration (computed in volume):"
     f"{particle_concentration_in_volume:.4e} particles/µm^3"
 )
+
+plt.show()
 
 # if __name__ == "__main__":
 #     main()

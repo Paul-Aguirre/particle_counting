@@ -1,5 +1,9 @@
+from tkinter.filedialog import askopenfilename
+
 import numpy as np
 from matplotlib import pyplot as plt
+
+from load_image_stack import load_image_stack
 
 
 def multi_slice_viewer(
@@ -8,7 +12,7 @@ def multi_slice_viewer(
     bbox_alpha: float = 0.5,
 ) -> None:
 
-    remove_keymap_conflicts({"j", "k"})
+    remove_keymap_conflicts({"j", "k", "h", "l"})
     fig, ax = plt.subplots()
     ax.volume = volume
     ax.index = volume.shape[0] // 2
@@ -42,6 +46,10 @@ def process_key(event):
         previous_slice(ax)
     elif event.key == "k":
         next_slice(ax)
+    elif event.key == "h":
+        previous_jump(ax)
+    elif event.key == "l":
+        next_jump(ax)
     fig.canvas.draw()
     # fmt: off
     (fig.canvas.manager
@@ -65,6 +73,26 @@ def next_slice(ax):
     ax.images[1].set_array(ax.red_foreground)
 
 
+def previous_jump(ax):
+    volume = ax.volume
+    ax.index = (ax.index - volume.shape[0] // 10) % volume.shape[
+        0
+    ]  # wrap around using %
+    ax.images[0].set_array(volume[ax.index])
+    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+    ax.images[1].set_array(ax.red_foreground)
+
+
+def next_jump(ax):
+    volume = ax.volume
+    ax.index = (ax.index + volume.shape[0] // 10) % volume.shape[
+        0
+    ]  # wrap around using %
+    ax.images[0].set_array(volume[ax.index])
+    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+    ax.images[1].set_array(ax.red_foreground)
+
+
 def remove_keymap_conflicts(new_keys_set):
     for prop in plt.rcParams:
         if prop.startswith("keymap."):
@@ -72,3 +100,9 @@ def remove_keymap_conflicts(new_keys_set):
             remove_list = set(keys) & new_keys_set
             for key in remove_list:
                 keys.remove(key)
+
+
+if __name__ == "__main__":
+    image_stack, metadata = load_image_stack(path=askopenfilename())
+    multi_slice_viewer(volume=image_stack)
+    plt.show()

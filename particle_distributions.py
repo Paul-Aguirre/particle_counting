@@ -170,7 +170,7 @@ def particle_distributions(
     axs2boxplot_xy.boxplot([x, y], tick_labels=["x", "y"], **boxplot_config)
     axs2boxplot_xy.set_ylabel("Size in microns")
 
-    plt.show()
+    # plt.show()
     if verbose:
         binss = [
             bins_pixels,
