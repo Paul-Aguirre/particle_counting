@@ -18,7 +18,7 @@ def multi_slice_viewer(
     ax.index = volume.shape[0] // 2
     ax.imshow(volume[ax.index], cmap="gray")
 
-    if (bboxes != None).all():
+    if bboxes is not None:
         assert bboxes.shape == volume.shape
 
         ax.bboxes = bboxes
@@ -61,16 +61,18 @@ def previous_slice(ax):
     volume = ax.volume
     ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
     ax.images[0].set_array(volume[ax.index])
-    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    ax.images[1].set_array(ax.red_foreground)
+    if ax.bboxes is not None:
+        ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+        ax.images[1].set_array(ax.red_foreground)
 
 
 def next_slice(ax):
     volume = ax.volume
     ax.index = (ax.index + 1) % volume.shape[0]
     ax.images[0].set_array(volume[ax.index])
-    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    ax.images[1].set_array(ax.red_foreground)
+    if ax.bboxes is not None:
+        ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+        ax.images[1].set_array(ax.red_foreground)
 
 
 def previous_jump(ax):
@@ -79,8 +81,9 @@ def previous_jump(ax):
         0
     ]  # wrap around using %
     ax.images[0].set_array(volume[ax.index])
-    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    ax.images[1].set_array(ax.red_foreground)
+    if ax.bboxes is not None:
+        ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+        ax.images[1].set_array(ax.red_foreground)
 
 
 def next_jump(ax):
@@ -89,8 +92,9 @@ def next_jump(ax):
         0
     ]  # wrap around using %
     ax.images[0].set_array(volume[ax.index])
-    ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    ax.images[1].set_array(ax.red_foreground)
+    if ax.bboxes is not None:
+        ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
+        ax.images[1].set_array(ax.red_foreground)
 
 
 def remove_keymap_conflicts(new_keys_set):
