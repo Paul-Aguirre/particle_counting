@@ -38,6 +38,7 @@ num_particles = len(results["props"])
 particle_concentration = num_particles / total_volume
 
 print(f"Total volume analysed: {total_volume:.4e} µm^3")
+print("{:-^72}".format("Particle number calculations in number"))
 print(f"Number of particles detected: {num_particles:.4e}")
 print(f"Particle concentration: {particle_concentration:.4e} particles/µm^3")
 
@@ -53,43 +54,66 @@ x, y, z = particle_distributions(
     # verbose=True,
 )
 
-median_diameter = np.mean(np.array([np.median(x), np.median(y)]))
+# particle number calculations in volume
 median_num_pixels = np.median(
     np.array(
         [prop.num_pixels for prop in results["props"]],
     )
 )
-
-results = process_stack(
-    image_stack=image_stack,
-    metadata=metadata,
-    particle_diameter=1,
-    full_bbox=False,
-    spacing=(
-        z_resolution(
-            diameter=median_diameter,
-            num_pixels=median_num_pixels,
-            x_resolution=metadata["pixel_microns"],
-            y_resolution=metadata["pixel_microns"],
-        ),
-        metadata["pixel_microns"],
-        metadata["pixel_microns"],
-    ),
-)
-
-particle_volumes = np.array(
-    [prop.area for prop in results["spacing_corrected_props"]],
-)
-num_particles_in_volume = np.sum(particle_volumes) / np.median(particle_volumes)
+nums_pixels = np.array([prop.num_pixels for prop in results["props"]])
+num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
 particle_concentration_in_volume = num_particles_in_volume / total_volume
 
+print("{:-^72}".format("Particle number calculations in volume"))
+# print("Without z-axis correction:")
 print(
-    f"Number of particles (computed in volume): {num_particles_in_volume:.4e}",
+    f"Number of particles (computed in volume): {num_particles_in_volume:4e}",
 )
 print(
     "Particle concentration (computed in volume):"
-    f"{particle_concentration_in_volume:.4e} particles/µm^3"
+    f"{particle_concentration_in_volume:4e} particles/µm^3"
 )
+
+# # computing correction factor for z-axis
+# median_diameter = np.mean(np.array([np.median(x), np.median(y)]))
+
+# results = process_stack(
+#     image_stack=image_stack,
+#     metadata=metadata,
+#     particle_diameter=1,
+#     full_bbox=False,
+#     spacing=(
+#         z_resolution(
+#             diameter=median_diameter,
+#             num_pixels=median_num_pixels,
+#             x_resolution=metadata["pixel_microns"],
+#             y_resolution=metadata["pixel_microns"],
+#         ),
+#         metadata["pixel_microns"],
+#         metadata["pixel_microns"],
+#     ),
+# )
+
+
+# particle_volumes_corrected = np.array(
+#     [prop.area for prop in results["spacing_corrected_props"]],
+# )
+# num_particles_in_volume_corrected = np.sum(particle_volumes_corrected) / np.median(
+#     particle_volumes_corrected
+# )
+# particle_concentration_in_volume_corrected = (
+#     num_particles_in_volume_corrected / total_volume
+# )
+
+# print("With z-axis correction:")
+# print(
+#     "Number of particles (computed in volume):"
+#     f"{num_particles_in_volume_corrected:e}",
+# )
+# print(
+#     "Particle concentration (computed in volume):"
+#     f"{particle_concentration_in_volume_corrected:e} particles/µm^3"
+# )
 
 plt.show()
 
