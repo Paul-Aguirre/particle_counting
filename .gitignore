@@ -1,4 +1,5 @@
 /__pycache__
 *.nd2
+*.npy
 .venv
 .vscode
