@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import numpy as np
+import toml
 
 
 def depth_of_field(
@@ -61,3 +64,12 @@ def z_resolution(
         / (27 * num_pixels * x_resolution * y_resolution)
         )
     # fmt: on
+
+
+def initialize_toml(filename: Path | str, metadata: dict):
+    toml_dict = {
+        "stack_start": metadata["z_levels"].start,
+        "stack_stop": metadata["z_levels"].stop,
+    }
+    with open(filename, mode="w") as f:
+        toml.dump(toml_dict, f)

@@ -1,5 +1,6 @@
 /__pycache__
 *.nd2
+*.toml
 *.npy
 .venv
 .vscode
