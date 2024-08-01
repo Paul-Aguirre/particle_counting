@@ -13,7 +13,7 @@ def load_image_stack(
         metadata = images.metadata
 
     image_stack = image_stack[start:stop]
-    metadata["z_coodinates"] = metadata["z_coordinates"][start:stop]
+    metadata["z_coordinates"] = metadata["z_coordinates"][start:stop]
     if stop:
         metadata["z_levels"] = range(start, stop)
     else:
