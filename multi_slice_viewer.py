@@ -3,7 +3,7 @@ from tkinter.filedialog import askopenfilename
 import numpy as np
 from matplotlib import pyplot as plt
 
-from load_image_stack import load_image_stack
+from files_inputs import load_image_stack
 
 
 def multi_slice_viewer(
