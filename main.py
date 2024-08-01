@@ -5,26 +5,15 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 
-from load_image_stack import load_image_stack
 from process_stack import process_stack
 from multi_slice_viewer import multi_slice_viewer
 from particle_distributions import particle_distributions
-from utils import z_resolution, initialize_toml
+from files_inputs import load_image_stack, check_config
 
 
 def main(datapath: str | Path) -> None:
-    datapath = Path(datapath)
-    configpath = datapath.parent / f"{datapath.stem}.toml"
 
-    # todo: à extraire dans une fonction séparée
-    # todo -------------------------------------------------------------
-    if not configpath.exists():
-        _, metadata = load_image_stack(str(datapath))
-        initialize_toml(configpath, metadata)
-        print(f"Created {configpath.name}.")
-        print("Please edit the configuration file.")
-        input("Press Enter to continue.")
-    # todo -------------------------------------------------------------
+    datapath, dirpath, configpath = check_config(datapath)
 
     with open(configpath, "rb") as f:
         config = tomllib.load(f)
