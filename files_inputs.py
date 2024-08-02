@@ -31,6 +31,7 @@ def initialize_toml(filename: Path | str, metadata: dict):
     toml_dict = {
         "stack_start": metadata["z_levels"].start,
         "stack_stop": metadata["z_levels"].stop,
+        "particle_size_microns": 1,  # defaults to 1 µm
     }
     with open(filename, mode="w") as f:
         toml.dump(toml_dict, f)

@@ -24,7 +24,12 @@ def main(datapath: str | Path) -> None:
         stop=config["stack_stop"],
     )
 
-    results = process_stack(image_stack, metadata, 1, full_bbox=False)
+    results = process_stack(
+        image_stack=image_stack,
+        metadata=metadata,
+        particle_diameter=config["particle_size_microns"],
+        full_bbox=False,
+    )
 
     multi_slice_viewer(
         # volume=results["binary"],
