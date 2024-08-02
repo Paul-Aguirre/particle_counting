@@ -1,4 +1,5 @@
 from tkinter.filedialog import askopenfilename
+from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -107,6 +108,8 @@ def remove_keymap_conflicts(new_keys_set):
 
 
 if __name__ == "__main__":
-    image_stack, metadata = load_image_stack(path=askopenfilename())
+    path = Path(askopenfilename())
+    print(f"Openning '{path.name}'.")
+    image_stack, metadata = load_image_stack(path=path)
     multi_slice_viewer(volume=image_stack)
     plt.show()
