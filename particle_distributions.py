@@ -1,9 +1,21 @@
-from typing import Sequence
+from typing import Sequence, NamedTuple
 
 import matplotlib.axes
+import matplotlib.figure
 import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
+
+
+class HistogramData(NamedTuple):
+    data: np.ndarray
+    cumdata: np.ndarray
+    bins: np.ndarray
+
+
+class DistributionPlot(NamedTuple):
+    fig: matplotlib.figure.Figure
+    ax: matplotlib.axes.Axes
 
 
 def hist_freq_cum(
@@ -130,7 +142,11 @@ def particle_distributions(
     nums_pixels = np.array(nums_pixels, dtype=np.float32)
     diameters = np.array(diameters, dtype=np.float32)
 
-    fig1, axs1 = plt.subplots(2, 3)
+    # figsize = (15.2, 8.7)
+    # figsize = (6.4, 4.8)
+    figsize = (9.6, 7.2)
+    fig1, axs1 = plt.subplots(2, 3, figsize=figsize)
+
     cum_num_pixels, bins_pixels, _ = hist_freq_cum(
         axs1[0, 0], nums_pixels, bins_pixels, "number of pixels"
     )
@@ -149,8 +165,9 @@ def particle_distributions(
     )
     secax_diameter.set_ylabel("Cumulative frequency")
     axs1[1, 2].boxplot(diameters, tick_labels=["diameter"], **boxplot_config)
+    fig1.set_layout_engine(layout="tight")
 
-    fig2, axs2 = plt.subplots(2, 3)
+    fig2, axs2 = plt.subplots(2, 3, figsize=figsize)
 
     cum_x, bins_xy, _ = hist_freq_cum(axs2[0, 0], x, bins_xy, "x")
     axs2[0, 0].set_ylabel("count")
@@ -169,6 +186,21 @@ def particle_distributions(
     axs2boxplot_xy = fig2.add_subplot(gs[1, :2])
     axs2boxplot_xy.boxplot([x, y], tick_labels=["x", "y"], **boxplot_config)
     axs2boxplot_xy.set_ylabel("Size in microns")
+    fig2.set_layout_engine(layout="tight")
+
+    histograms = {
+        "num_pixels": HistogramData(nums_pixels, cum_num_pixels, bins_pixels),
+        "area": HistogramData(areas, cum_area, bins_area),
+        "diameter": HistogramData(diameters, cum_diameter, bins_diameter),
+        "x": HistogramData(x, cum_x, bins_xy),
+        "y": HistogramData(y, cum_y, bins_xy),
+        "z": HistogramData(z, cum_z, bins_z),
+    }
+
+    plots = {
+        "pix_area_diam": DistributionPlot(fig1, axs1),
+        "xyz": DistributionPlot(fig2, axs2),
+    }
 
     # plt.show()
     if verbose:
@@ -202,15 +234,19 @@ def particle_distributions(
             measurement_strs,
         ):
             print(measurement_str)
-            print("bins, cumulative frequency")
-            print(
-                np.concatenate(
-                    [
-                        bins[:-1, np.newaxis],
-                        cum_hist[:, np.newaxis] / np.max(cum_hist),
-                    ],
-                    axis=1,
-                )
-            )
 
-    return x, y, z
+    return histograms, plots
+
+
+def print_histogram(histogram: HistogramData) -> None:
+    print("bins, cumulative frequency, frequency")
+    print(
+        np.concatenate(
+            [
+                histogram.bins[:-1, np.newaxis],
+                histogram.cumdata[:, np.newaxis] / np.max(histogram.cumdata),
+                histogram.data[:, np.newaxis] / np.max(histogram.data),
+            ],
+            axis=1,
+        )
+    )
