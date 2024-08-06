@@ -7,6 +7,8 @@ from matplotlib import colors
 
 from files_inputs import load_image_stack
 
+# volume = None
+
 
 def multi_slice_viewer(
     volume: np.ndarray,
@@ -15,16 +17,16 @@ def multi_slice_viewer(
     lognorm: bool = False,
 ) -> None:
 
-    remove_keymap_conflicts({"j", "k", "h", "l"})
+    remove_keymap_conflicts({"j", "k", "h", "l", "c", "r"})
     fig, ax = plt.subplots()
     ax.volume = volume
     ax.index = volume.shape[0] // 2
-    
+
     if lognorm:
         norm = colors.LogNorm(vmin=volume.min(), vmax=volume.max())
     else:
         norm = colors.Normalize()
-    
+
     ax.imshow(volume[ax.index], norm=norm, cmap="gray")
 
     if bboxes is not None:
@@ -59,6 +61,12 @@ def process_key(event):
         previous_jump(ax)
     elif event.key == "l":
         next_jump(ax)
+    elif event.key == "c":
+        crop_xy(ax)
+    elif event.key == "r":
+        remove_xy(ax)
+    # elif event.key == "s":
+    #     save_volume(ax)
     fig.canvas.draw()
     # fmt: off
     (fig.canvas.manager
@@ -104,6 +112,35 @@ def next_jump(ax):
     if ax.bboxes is not None:
         ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
         ax.images[1].set_array(ax.red_foreground)
+
+
+def select_rectangle():
+    corners = np.asarray(plt.ginput(2, timeout=-1)).astype("int")
+    xmin = corners[:, 0].min()
+    xmax = corners[:, 0].max()
+    ymin = corners[:, 1].min()
+    ymax = corners[:, 1].max()
+    return xmin, xmax, ymin, ymax
+
+
+def crop_xy(ax):  # does not work with bboxes
+    volume = ax.volume
+    xmin, xmax, ymin, ymax = select_rectangle()
+    ax.volume = volume[:, ymin:ymax, xmin:xmax]
+    ax.images[0].set_array(ax.volume[ax.index])
+
+
+def remove_xy(ax):  # does not work with bboxes
+    volume = ax.volume
+    xmin, xmax, ymin, ymax = select_rectangle()
+    volume[:, ymin:ymax, xmin:xmax] = volume.min()
+    ax.volume = volume
+    ax.images[0].set_array(ax.volume[ax.index])
+
+
+# def save_volume(ax):
+#     global volume
+#     volume = ax.volume
 
 
 def remove_keymap_conflicts(new_keys_set):
