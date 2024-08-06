@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import colors
 
 from files_inputs import load_image_stack
 
@@ -11,13 +12,20 @@ def multi_slice_viewer(
     volume: np.ndarray,
     bboxes: np.ndarray | None = None,
     bbox_alpha: float = 0.5,
+    lognorm: bool = False,
 ) -> None:
 
     remove_keymap_conflicts({"j", "k", "h", "l"})
     fig, ax = plt.subplots()
     ax.volume = volume
     ax.index = volume.shape[0] // 2
-    ax.imshow(volume[ax.index], cmap="gray")
+    
+    if lognorm:
+        norm = colors.LogNorm(vmin=volume.min(), vmax=volume.max())
+    else:
+        norm = colors.Normalize()
+    
+    ax.imshow(volume[ax.index], norm=norm, cmap="gray")
 
     if bboxes is not None:
         assert bboxes.shape == volume.shape
@@ -110,6 +118,6 @@ def remove_keymap_conflicts(new_keys_set):
 if __name__ == "__main__":
     path = Path(askopenfilename())
     print(f"Openning '{path.name}'.")
-    image_stack, metadata = load_image_stack(path=path)
-    multi_slice_viewer(volume=image_stack)
+    image_stack, metadata = load_image_stack(path=str(path))
+    multi_slice_viewer(volume=image_stack, lognorm=True)
     plt.show()
