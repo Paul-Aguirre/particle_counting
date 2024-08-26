@@ -84,7 +84,7 @@ def main(
     # ! le nombre de pixel médian est trop élevé pour obtenir un calcul
     # ! correct de la concentration en particules en volume pour les
     # ! traceurs de 0.2 microns.
-    # ? Utiliser le fractile d'ordre 0.1 ou 0.2
+    # ? Utiliser le fractile d'ordre 0.1 ou 0.2 ?
     median_num_pixels = np.median(
         np.array(
             [prop.num_pixels for prop in results["props"]],
@@ -94,13 +94,14 @@ def main(
     num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
     particle_concentration_in_volume = num_particles_in_volume / total_volume
 
+    print("\n")
     print("{:-^72}".format("Particle number calculations in volume"))
     # print("Without z-axis correction:")
     print(
-        f"Number of particles (computed in volume): {num_particles_in_volume:.4e}",
+        f"Number of particles: {num_particles_in_volume:.4e}",
     )
     print(
-        "Particle concentration (computed in volume):"
+        "Particle concentration:"
         f"{particle_concentration_in_volume:.4e} particles/µm^3"
     )
 

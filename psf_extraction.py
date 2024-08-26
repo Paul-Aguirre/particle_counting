@@ -12,7 +12,7 @@ from scipy.stats import zscore
 from scipy.ndimage import center_of_mass
 from skimage import io, feature, filters, restoration, measure
 
-from load_image_stack import load_image_stack
+from files_inputs import load_image_stack
 
 
 class Plane(StrEnum):
