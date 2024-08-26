@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from process_stack import process_stack
-from multi_slice_viewer import multi_slice_viewer
+from multi_slice_viewer import MultiSliceViewer
 from particle_distributions import particle_distributions
 from files_inputs import load_image_stack, check_config
 
@@ -36,7 +36,8 @@ def main(
     )
 
     if view_stack:
-        multi_slice_viewer(
+        viewer = MultiSliceViewer()
+        viewer.plot(
             # volume=results["binary"],
             volume=image_stack,
             bboxes=results["bboxes3d"],
