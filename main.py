@@ -56,8 +56,10 @@ def main(
 
     particle_concentration = num_particles / total_volume
 
+    print("\n")
     print(f"File: {datapath.name}")
     print(f"Total volume analysed: {total_volume:.4e} µm^3")
+    print("\n")
     print("{:-^72}".format("Particle number calculations in number"))
     print(f"Number of particles detected: {num_particles:.4e}")
     print(f"Particle concentration: {particle_concentration:.4e} particles/µm^3")
