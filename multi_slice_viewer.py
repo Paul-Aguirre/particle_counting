@@ -38,6 +38,7 @@ class MultiSliceViewer:
         volume: np.ndarray,
         bboxes: np.ndarray | None = None,
         bbox_alpha: float = 0.5,
+        cmap: str = "gray",
     ):
         self.ax.volume = volume
         self.ax.index = volume.shape[0] // 2
@@ -47,7 +48,7 @@ class MultiSliceViewer:
         else:
             norm = colors.Normalize()
 
-        self.ax.imshow(volume[self.ax.index], norm=norm, cmap="gray")
+        self.ax.imshow(volume[self.ax.index], norm=norm, cmap=cmap)
 
         if bboxes is not None:
             assert bboxes.shape == volume.shape
@@ -71,7 +72,9 @@ class MultiSliceViewer:
             f"Slice {self.ax.index}/{volume.shape[0]}"
         )
 
-        # plt.show()
+    @staticmethod
+    def show():
+        plt.show()
 
     @staticmethod
     def _create_key_bindings() -> dict[str, Callable]:
