@@ -1,6 +1,7 @@
 from tkinter.filedialog import askopenfilename
 from pathlib import Path
 from enum import StrEnum, auto
+from functools import partial
 
 import numpy as np
 import matplotlib as mpl
@@ -107,13 +108,20 @@ def plot_psf_results(
     return fig, ax
 
 
-def main():
+def main(path: str | Path):
+    # ? on peut jouer sur:
+    # - le filtre gaussien en pre-process et post-process
+    # - les dimensions de la zone extraite autour des traceurs
+    # - le z-score pour retirer les outliers
+    # - la forme du PSF théorique
+    # ! - le nombre d'itérations de l'algo de déconvolution pour extraire le PSF
+    # ! - le nombre d'itérations de l'algo de déconvolution pour tester le PSF
+
     # * Load particles image stack
-    path = askopenfilename()
+    image_stack, metadata = load_image_stack(str(path))
+    # todo : take the config file into account
 
-    image_stack, metadata = load_image_stack(path)
-
-    # Preprocess the image (optional)
+    # * Preprocess the image (optional)
     # Example: Gaussian filter to reduce noise
     image_3d_filtered = filters.gaussian(image_stack, sigma=1)
 
@@ -242,12 +250,13 @@ def main():
     theoretical_psf = generate_theoretical_psf(psf_shape, sphere_radius)
 
     # Deconvolve observed PSF with theoretical PSF
-    num_iter = 30
+    num_iter_restoration = 5
+    num_iter_test = 100
     restored_psf = restoration.richardson_lucy(
-        mean_psf_smoothed, theoretical_psf, num_iter=num_iter
+        mean_psf_smoothed, theoretical_psf, num_iter=num_iter_restoration
     )
     deconvolution_test = restoration.richardson_lucy(
-        mean_psf_smoothed, restored_psf, num_iter=num_iter
+        mean_psf_smoothed, restored_psf, num_iter=num_iter_test
     )
 
     # ? Fit restored PSF using gaussian or Airy model
@@ -261,48 +270,38 @@ def main():
 
     # * Display the results
     # Visualization of the restored PSF
-    # In the xy pane
 
-    fig_xy, ax_xy = plot_psf_results(
+    plot_results = partial(
+        plot_psf_results,
         initial_mean_psf,
         final_mean_psf,
         mean_psf_smoothed,
         theoretical_psf,
         restored_psf,
         deconvolution_test,
-        plane=Plane.XY,
-        num_iter_restoration=30,
-        num_iter_test=30,
+        num_iter_restoration=num_iter_restoration,
+        num_iter_test=num_iter_test,
     )
+
+    print(f"num_iter_restoration = {num_iter_restoration}")
+    print(f"num_iter_test = {num_iter_test}")
+
+    # In the xy pane
+    fig_xy, ax_xy = plot_results(plane=Plane.XY)
 
     # In the xz pane
-    fig_xz, ax_xz = plot_psf_results(
-        initial_mean_psf,
-        final_mean_psf,
-        mean_psf_smoothed,
-        theoretical_psf,
-        restored_psf,
-        deconvolution_test,
-        plane=Plane.XZ,
-        num_iter_restoration=30,
-        num_iter_test=30,
-    )
+    fig_xz, ax_xz = plot_results(plane=Plane.XZ)
 
     # In the yz pane
-    fig_yz, ax_yz = plot_psf_results(
-        initial_mean_psf,
-        final_mean_psf,
-        mean_psf_smoothed,
-        theoretical_psf,
-        restored_psf,
-        deconvolution_test,
-        plane=Plane.YZ,
-        num_iter_restoration=30,
-        num_iter_test=30,
-    )
+    fig_yz, ax_yz = plot_results(plane=Plane.YZ)
 
     plt.show()
 
 
 if __name__ == "__main__":
-    main()
+    path = Path(
+        r"C:\Users\aguirrep\Documents\microscopie\fluo_tests\comptage"
+        r"\data\calib-caps\1.5pc-20-caps1.nd2"
+    )
+    # path = askopenfilename()
+    main(path)
