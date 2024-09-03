@@ -12,15 +12,18 @@ def process_stack(
     capsule: bool = False,
 ) -> dict:
 
+    # todo : devide the process_stack() function into smaller ones
+    # todo : for specific processing
+
     results = {}
-    # Isolating the particles by thresholding
+    # * Isolating the particles by thresholding
     thresh = filters.threshold_otsu(image_stack)
     processed_stack = image_stack > thresh
 
     results.update(ostu_threshold=thresh, binary=processed_stack)
 
     if morph_open:
-        # Separating grouped particles for later counting
+        # * Separating grouped particles for later counting
         structuring_element = morphology.ball(
             max(
                 1, particle_diameter / metadata["pixel_microns"] / 2
@@ -34,7 +37,7 @@ def process_stack(
     else:
         results.update(binary_opened=None)
 
-    # Detecting and labeling particles
+    # * Detecting and labeling particles
     labels = measure.label(processed_stack)
     results.update(labels=labels)
 
@@ -48,6 +51,7 @@ def process_stack(
     )
     results.update(props=props)
 
+    # * Creating a stack of bboxes for displaying
     bboxes3d = np.zeros(processed_stack.shape, dtype=np.uint8)
 
     if full_bbox:
@@ -71,6 +75,8 @@ def process_stack(
                 bboxes3d[z, rr, cc] = 1
     results.update(bboxes3d=bboxes3d)
 
+    # * Correcting spacing (optinnal) in order to make the tracers
+    # * appear as spheres
     if spacing:
         spacing_corrected_props = measure.regionprops(
             labels,
@@ -80,6 +86,8 @@ def process_stack(
     else:
         results.update(spacing_corrected_props=None)
 
+    # * Determine the convex hull (applicable for capsules)
+    # (usable to determine capsule volume)
     if capsule:
         hull = morphology.convex_hull_image(processed_stack)
         labeled_hull = measure.label(hull)

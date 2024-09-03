@@ -69,5 +69,6 @@ def prepare_datafile(file: str | Path | Sequence[str | Path]):
 
 
 if __name__ == "__main__":
+    # allows to prepares a list of selected files for analysis
     datafiles = askopenfilenames(title="Select the datafile to prepare")
     prepare_datafile(datafiles)

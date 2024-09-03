@@ -104,7 +104,7 @@ def main():
     # List to store individual PSFs
     psfs = []
 
-    # Extract PSF for each detected particle
+    # * Extract PSF for each detected particle
     for coord in particles:
         z, y, x = coord
         # Define the region around the particle
@@ -122,7 +122,7 @@ def main():
         psf_region = psf_region / np.sum(psf_region)
         psfs.append(psf_region)
 
-    # Align PSFs to a common center
+    # * Align PSFs to a common center
     # Assume the particle's center is the peak intensity point
     aligned_psfs = []
     for psf in psfs:
@@ -143,7 +143,7 @@ def main():
         )
         aligned_psfs.append(shifted_psf)
 
-    # Removing cropped PSFs
+    # * Removing cropped PSFs
     # fmt: off
     aligned_psfs = [
         psf for psf in aligned_psfs if (psf.shape == psf_shape).all()
@@ -173,7 +173,7 @@ def main():
     filtered_psfs = [psf for i, psf in enumerate(aligned_psfs) if not outliers[i]]
     print(f"Number of outliers: {np.sum(outliers)}")
 
-    # Compute the final mean PSF without outliers
+    # * Compute the final mean PSF without outliers
     final_mean_psf = np.mean(filtered_psfs, axis=0)
 
     # ? Optionally refine the PSF (e.g., smooth)
@@ -206,7 +206,7 @@ def main():
     psf_shape = mean_psf_smoothed.shape  # Assuming the PSF is a cube
     sphere_radius = round(
         1 / metadata["pixel_microns"]
-    )  # Radius of the ideal sphere in pixels
+    )  # Radius of the ideal 1 micron sphere in pixels
 
     # Generate the theoretical PSF
     theoretical_psf = generate_theoretical_psf(psf_shape, sphere_radius)

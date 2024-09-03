@@ -17,17 +17,20 @@ def main(
     view_distributions: bool = True,
 ) -> None:
 
+    # * Checking and loading configuration
     datapath, dirpath, configpath = check_config(datapath)
 
     with open(configpath, "rb") as f:
         config = tomllib.load(f)
 
+    # * Loading image stack
     image_stack, metadata = load_image_stack(
         str(datapath),
         start=config["stack_start"],
         stop=config["stack_stop"],
     )
 
+    # * processing image stack
     results = process_stack(
         image_stack=image_stack,
         metadata=metadata,
@@ -35,6 +38,7 @@ def main(
         full_bbox=False,
     )
 
+    # * Displaying (optinnal) stack in MiltiSliceViewer
     if view_stack:
         viewer = MultiSliceViewer()
         viewer.plot(
@@ -45,6 +49,7 @@ def main(
         )
         plt.show()
 
+    # * Computing particle concentration in number
     total_volume = (
         abs(metadata["z_coordinates"][-1] - metadata["z_coordinates"][0])
         * metadata["width"]
@@ -64,6 +69,7 @@ def main(
     print(f"Number of particles detected: {num_particles:.4e}")
     print(f"Particle concentration: {particle_concentration:.4e} particles/µm^3")
 
+    # * Plotting particle size distribution
     histograms, plots = particle_distributions(
         results,
         metadata,
@@ -82,7 +88,7 @@ def main(
             # transparent=True,
         )
 
-    # particle number calculations in volume
+    # * Computing particle concentration in volume
     # ! le nombre de pixel médian est trop élevé pour obtenir un calcul
     # ! correct de la concentration en particules en volume pour les
     # ! traceurs de 0.2 microns.
@@ -103,7 +109,7 @@ def main(
         f"Number of particles: {num_particles_in_volume:.4e}",
     )
     print(
-        "Particle concentration:"
+        "Particle concentration: "
         f"{particle_concentration_in_volume:.4e} particles/µm^3"
     )
 
