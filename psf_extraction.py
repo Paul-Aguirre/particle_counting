@@ -13,25 +13,17 @@ from scipy.ndimage import center_of_mass
 from skimage import io, feature, filters, restoration, measure
 
 from files_inputs import load_image_stack
+from plane import Plane
 
-
-class Plane(StrEnum):
-    XY = auto()
-    XZ = auto()
-    YZ = auto()
-
-
-def middle_slice(stack: np.ndarray, plane: Plane | str):
-    match plane:
-        case Plane.XY:
-            indices = (stack.shape[0] // 2, slice(None), slice(None))
-        case Plane.XZ:
-            indices = (slice(None), stack.shape[1] // 2, slice(None))
-        case Plane.YZ:
-            indices = (slice(None), slice(None), stack.shape[2] // 2)
-        case _:
-            raise ValueError
-    return indices
+"""
+Pour l'instant la déconvolution donne des cubes. Peut-être que c'est pas
+grave, même pour le comptage en volume.
+- voir ce que ça donne un stack déconvolué en entier (séparation des 
+agrégats ?, problèmes ?)
+- comparer comptage en volume et en nombre à tester sur un stack
+déconvolué et non déconvolué
+- comparer le calcul du volume de capsule avec et sans déconvolution
+"""
 
 
 def plot_psf_results(
@@ -45,34 +37,72 @@ def plot_psf_results(
     num_iter_restoration: int,
     num_iter_test: int,
 ) -> tuple:
+    plane = Plane(plane)
     fig, ax = plt.subplots(2, 3)
 
-    ax[0, 0].set_xlabel("Averaged PSF with ouliers")
+    ax[0, 0].set_xlabel("Averaged PSF\nwith ouliers")
+    # fmt: off
     img = ax[0, 0].imshow(
-        initial_mean_psf[middle_slice(initial_mean_psf, plane)], cmap="gray"
+        initial_mean_psf[
+            plane.middle_slice(initial_mean_psf.shape[plane.normal_axis])
+        ],
+        cmap="gray",
     )
+    # fmt: on
 
-    ax[0, 1].set_title(f"{plane} plane (central slices)")
-    ax[0, 1].set_xlabel("Averaged PSF without ouliers")
-    ax[0, 1].imshow(final_mean_psf[middle_slice(final_mean_psf, plane)], cmap="gray")
+    ax[0, 1].set_title(f"{plane} plane\n(central slices)")
+    ax[0, 1].set_xlabel("Averaged PSF\nwithout ouliers")
+    # fmt: off
+    ax[0, 1].imshow(
+        final_mean_psf[
+            plane.middle_slice(final_mean_psf.shape[plane.normal_axis])
+        ],
+        cmap="gray",
+    )
+    # fmt: on
 
     ax[0, 2].set_xlabel("Smoothed PSF")
+    # fmt: off
     ax[0, 2].imshow(
-        mean_psf_smoothed[middle_slice(mean_psf_smoothed, plane)], cmap="gray"
+        mean_psf_smoothed[
+            plane.middle_slice(mean_psf_smoothed.shape[plane.normal_axis])
+        ],
+        cmap="gray",
     )
+    # fmt: on
 
     ax[1, 0].set_xlabel("Theorical spherical PSF")
-    ax[1, 0].imshow(theoretical_psf[middle_slice(theoretical_psf, plane)], cmap="gray")
-
-    ax[1, 1].set_xlabel(f"Restored PSF, num_iter={num_iter_restoration}")
-    ax[1, 1].imshow(restored_psf[middle_slice(restored_psf, plane)], cmap="gray")
-
-    ax[1, 2].set_xlabel(f"Deconvolution test, num_iter={num_iter_test}")
-    ax[1, 2].imshow(
-        deconvolution_test[middle_slice(deconvolution_test, plane)], cmap="gray"
+    # fmt: off
+    ax[1, 0].imshow(
+        theoretical_psf[
+            plane.middle_slice(theoretical_psf.shape[plane.normal_axis])
+        ],
+        cmap="gray",
     )
+    # fmt: on
 
+    ax[1, 1].set_xlabel(f"Restored PSF,\nnum_iter={num_iter_restoration}")
+    # fmt: off
+    ax[1, 1].imshow(
+        restored_psf[
+            plane.middle_slice(restored_psf.shape[plane.normal_axis])
+        ],
+        cmap="gray",
+    )
+    # fmt: on
+
+    ax[1, 2].set_xlabel(f"Deconvolution test,\nnum_iter={num_iter_test}")
+    # fmt: off
+    ax[1, 2].imshow(
+        deconvolution_test[
+            plane.middle_slice(deconvolution_test.shape[plane.normal_axis])
+        ],
+        cmap="gray",
+    )
+    # fmt: on
     plt.colorbar(img, cax=None, ax=ax)
+
+    fig.set_layout_engine(layout="constrained")
 
     return fig, ax
 
