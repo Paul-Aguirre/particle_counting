@@ -3,5 +3,6 @@
 *.nd2
 *.toml
 *.npy
+*.pptx
 .venv
 .vscode
