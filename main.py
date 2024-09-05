@@ -15,7 +15,7 @@ def main(
     datapath: str | Path,
     view_stack: bool = True,
     view_distributions: bool = True,
-) -> None:
+) -> tuple:
 
     # * Checking and loading configuration
     datapath, dirpath, configpath = check_config(datapath)

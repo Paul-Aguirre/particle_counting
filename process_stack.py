@@ -172,7 +172,7 @@ def filter_slices(bboxes_in_slices: list[int], threshold: int):
 #     return True
 
 
-def find_unconsecutives(lst: list[int], sort: bool = True) -> bool:
+def find_unconsecutives(lst: list[int], sort: bool = True) -> list[tuple[int, int]]:
     """Scans a list of intengers for elements that are not consecutive
     and return their indices in a list of tuples.
 
