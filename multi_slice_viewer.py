@@ -18,12 +18,14 @@ class MultiSliceViewer:
     def __init__(
         self,
         lognorm: bool = False,
+        cmap: str = "gray",
     ) -> None:
 
         self.key_bindings = self._create_key_bindings()
         self._remove_keymap_conflicts(set(self.key_bindings.keys()))
         self.fig, self.ax = plt.subplots()
         self.lognorm = lognorm
+        self.cmap = cmap
 
         self.fig.canvas.mpl_connect(
             "key_press_event",
@@ -38,7 +40,6 @@ class MultiSliceViewer:
         volume: np.ndarray,
         bboxes: np.ndarray | None = None,
         bbox_alpha: float = 0.5,
-        cmap: str = "gray",
     ):
         self.ax.volume = volume
         self.ax.index = volume.shape[0] // 2
@@ -48,7 +49,7 @@ class MultiSliceViewer:
         else:
             norm = colors.Normalize()
 
-        self.ax.imshow(volume[self.ax.index], norm=norm, cmap=cmap)
+        self.ax.imshow(volume[self.ax.index], norm=norm, cmap=self.cmap)
 
         if bboxes is not None:
             assert bboxes.shape == volume.shape
@@ -73,8 +74,21 @@ class MultiSliceViewer:
         )
 
     @staticmethod
-    def show():
+    def show() -> None:
         plt.show()
+
+    @classmethod
+    def display(cls, image_stack: np.ndarray, **kwargs) -> None:
+        viewer = cls(**kwargs)
+        viewer.plot(image_stack)
+        viewer.show()
+        return viewer
+
+    @classmethod
+    def display_file(cls, filepath: str | Path, **kwargs) -> None:
+        image_stack, _ = load_image_stack(path=str(filepath))
+        viewer = cls.display(image_stack, **kwargs)
+        return viewer
 
     @staticmethod
     def _create_key_bindings() -> dict[str, Callable]:
@@ -203,9 +217,11 @@ class MultiSliceViewer:
 
 
 if __name__ == "__main__":
+    # keep it without using the display_file method to have access
+    # to image_stack and metadata after execution
     path = Path(askopenfilename())
     print(f"Openning '{path.name}'.")
     image_stack, metadata = load_image_stack(path=str(path))
     viewer = MultiSliceViewer(lognorm=True)
     viewer.plot(volume=image_stack)
-    plt.show()
+    viewer.show()

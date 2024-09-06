@@ -61,7 +61,7 @@ def check_config(
 
 
 def prepare_datafile(file: str | Path | Sequence[str | Path]):
-    if type(file) is str | Path:
+    if type(file) is str or type(file) is Path:
         check_config(file)
     else:
         for elt in file:
