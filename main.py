@@ -1,3 +1,4 @@
+from enum import Enum
 from tkinter.filedialog import askopenfilename
 import tomllib
 from pathlib import Path
@@ -6,9 +7,35 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from process_stack import process_stack
-from multi_slice_viewer import MultiSliceViewer
+from multi_slice_viewer import MultiSliceViewer, make_bbox_overlay, RGBColorIndex
 from particle_distributions import particle_distributions
 from files_inputs import load_image_stack, check_config
+
+
+# class RGBColorIndex(Enum):
+#     RED = (0,)
+#     GREEN = (1,)
+#     BLUE = (2,)
+#     YELLOW = 0, 1
+#     PURPLE = 0, 2
+#     CYAN = 1, 2
+#     WHITE = 0, 1, 2
+
+
+# def make_bbox_overlay(
+#     bboxes: np.ndarray,
+#     alpha: float,
+#     color_index: int | RGBColorIndex,
+# ):
+#     bbox_overlay = np.zeros(
+#         (*bboxes.shape, 4),
+#         dtype=np.float64,
+#     )
+#     for i in color_index:
+#         bbox_overlay[..., i] = bboxes
+#     bbox_overlay[..., 3] = alpha
+
+#     return bbox_overlay
 
 
 def main(
@@ -38,14 +65,17 @@ def main(
         full_bbox=False,
     )
 
-    # * Displaying (optinnal) stack in MiltiSliceViewer
+    # * Displaying (optionnal) stack in MultiSliceViewer
     if view_stack:
         viewer = MultiSliceViewer()
         viewer.plot(
             # volume=results["binary"],
             volume=image_stack,
-            bboxes=results["bboxes3d"],
-            bbox_alpha=0.5,
+            overlay=make_bbox_overlay(
+                bboxes=results["bboxes3d"],
+                alpha=0.5,
+                color_index=RGBColorIndex.RED,
+            ),
         )
         plt.show()
 

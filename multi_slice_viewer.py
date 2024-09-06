@@ -1,7 +1,8 @@
 from tkinter.filedialog import askopenfilename
 from pathlib import Path
-from functools import partial, partialmethod
+from functools import partial
 from typing import Callable
+from enum import Enum
 
 import matplotlib.axes
 import numpy as np
@@ -11,7 +12,31 @@ import matplotlib
 
 from files_inputs import load_image_stack
 
-# volume = None
+
+class RGBColorIndex(Enum):
+    RED = (0,)
+    GREEN = (1,)
+    BLUE = (2,)
+    YELLOW = 0, 1
+    PURPLE = 0, 2
+    CYAN = 1, 2
+    WHITE = 0, 1, 2
+
+
+def make_bbox_overlay(
+    bboxes: np.ndarray,
+    alpha: float,
+    color_index: int | RGBColorIndex,
+):
+    bbox_overlay = np.zeros(
+        (*bboxes.shape, 4),
+        dtype=np.float64,
+    )
+    for i in color_index.value:
+        bbox_overlay[..., i] = bboxes
+    bbox_overlay[..., 3] = alpha
+
+    return bbox_overlay
 
 
 class MultiSliceViewer:
@@ -38,8 +63,7 @@ class MultiSliceViewer:
     def plot(
         self,
         volume: np.ndarray,
-        bboxes: np.ndarray | None = None,
-        bbox_alpha: float = 0.5,
+        overlay: np.ndarray | None = None,
     ):
         self.ax.volume = volume
         self.ax.index = volume.shape[0] // 2
@@ -51,23 +75,19 @@ class MultiSliceViewer:
 
         self.ax.imshow(volume[self.ax.index], norm=norm, cmap=self.cmap)
 
-        if bboxes is not None:
-            assert bboxes.shape == volume.shape
+        if overlay is not None:
+            if overlay.shape[0:3] != volume.shape:
+                raise ValueError(
+                    f"overlay (shape: {overlay.shape}) and volume "
+                    f"(shape: {volume.shape}) must have compatible shapes."
+                )
 
-            self.ax.bboxes = bboxes
+            self.ax.overlay = overlay
 
-            red_foreground = np.zeros(
-                (*volume.shape[1:], 4),
-                dtype=np.float64,
-            )
-            red_foreground[..., 0] = 1
-            red_foreground[..., 3] = bboxes[self.ax.index] * bbox_alpha
-            self.ax.red_foreground = red_foreground
-            self.ax.bbox_alpha = bbox_alpha
-            self.ax.imshow(red_foreground)
+            self.ax.imshow(overlay[self.ax.index])
 
         else:
-            self.ax.bboxes = None
+            self.ax.overlay = None
 
         self.fig.canvas.manager.set_window_title(
             f"Slice {self.ax.index}/{volume.shape[0]}"
@@ -137,9 +157,8 @@ class MultiSliceViewer:
         else:
             ax.index = (ax.index + n) % volume.shape[0]
         ax.images[0].set_array(volume[ax.index])
-        if ax.bboxes is not None:
-            ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-            ax.images[1].set_array(ax.red_foreground)
+        if ax.overlay is not None:
+            ax.images[1].set_array(ax.overlay[ax.index])
 
     @staticmethod
     def _select_rectangle() -> tuple[int, int, int, int]:
@@ -211,16 +230,18 @@ class MultiSliceViewerDuo(MultiSliceViewer):
         self.ax1.index = volume1.shape[0] // 2
         self.ax2.volume = volume2
         self.ax2.index = volume2.shape[0] // 2
+        axes = self.ax1, self.ax2
 
-        if self.lognorm:
-            norm1 = colors.LogNorm(vmin=volume1.min(), vmax=volume1.max())
-            norm2 = colors.LogNorm(vmin=volume2.min(), vmax=volume2.max())
-        else:
-            norm1 = colors.Normalize()
-            norm2 = colors.Normalize()
+        for ax in axes:
+            if self.lognorm:
+                norm = colors.LogNorm(
+                    vmin=ax.volume.min(),
+                    vmax=ax.volume.max(),
+                )
+            else:
+                norm = colors.Normalize()
 
-        self.ax1.imshow(volume1[self.ax1.index], norm=norm1, cmap=self.cmap)
-        self.ax2.imshow(volume2[self.ax2.index], norm=norm2, cmap=self.cmap)
+            ax.imshow(ax.volume[ax.index], norm=norm, cmap=self.cmap)
 
         self.fig.canvas.manager.set_window_title(
             f"Slice {self.ax1.index}/{volume1.shape[0]}"
