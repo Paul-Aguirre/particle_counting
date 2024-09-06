@@ -30,7 +30,7 @@ class MultiSliceViewer:
         self.fig.canvas.mpl_connect(
             "key_press_event",
             partial(
-                MultiSliceViewer._process_key,
+                self._process_key,
                 key_bindings=self.key_bindings,
             ),
         )
@@ -90,15 +90,25 @@ class MultiSliceViewer:
         viewer = cls.display(image_stack, **kwargs)
         return viewer
 
-    @staticmethod
-    def _create_key_bindings() -> dict[str, Callable]:
+    @classmethod
+    def _create_key_bindings(cls) -> dict[str, Callable]:
+
+        _previous_slice = partial(cls._increment_slice, n=-1)
+        _previous_slice = staticmethod(_previous_slice)
+        _next_slice = partial(cls._increment_slice, n=1)
+        _next_slice = staticmethod(_next_slice)
+        _previous_jump = partial(cls._increment_slice, n=-10, jump=True)
+        _previous_jump = staticmethod(_previous_jump)
+        _next_jump = partial(cls._increment_slice, n=10, jump=True)
+        _next_jump = staticmethod(_next_jump)
+
         return {
-            "j": MultiSliceViewer._previous_slice,
-            "k": MultiSliceViewer._next_slice,
-            "h": MultiSliceViewer._previous_jump,
-            "l": MultiSliceViewer._next_jump,
-            "c": MultiSliceViewer._crop_xy,
-            "r": MultiSliceViewer._remove_xy,
+            "j": _previous_slice,
+            "k": _next_slice,
+            "h": _previous_jump,
+            "l": _next_jump,
+            "c": cls._crop_xy,
+            "r": cls._remove_xy,
         }
 
     @staticmethod
@@ -114,11 +124,13 @@ class MultiSliceViewer:
         .set_window_title(f"Slice {ax.index}/{ax.volume.shape[0]}"))
         # fmt: on
 
+    @staticmethod
     def _increment_slice(
         ax: matplotlib.axes.Axes,
         n: int,
         jump: bool = False,
     ) -> None:
+
         volume = ax.volume
         if jump:
             ax.index = (ax.index + volume.shape[0] // n) % volume.shape[0]
@@ -128,55 +140,6 @@ class MultiSliceViewer:
         if ax.bboxes is not None:
             ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
             ax.images[1].set_array(ax.red_foreground)
-
-    _previous_slice = partial(_increment_slice, n=-1)
-    _previous_slice = staticmethod(_previous_slice)
-    _next_slice = partial(_increment_slice, n=1)
-    _next_slice = staticmethod(_next_slice)
-    _previous_jump = partial(_increment_slice, n=-10, jump=True)
-    _previous_jump = staticmethod(_previous_jump)
-    _next_jump = partial(_increment_slice, n=10, jump=True)
-    _next_jump = staticmethod(_next_jump)
-
-    # @staticmethod
-    # def _previous_slice(ax: matplotlib.axes.Axes) -> None:
-    #     volume = ax.volume
-    #     ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
-    #     ax.images[0].set_array(volume[ax.index])
-    #     if ax.bboxes is not None:
-    #         ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    #         ax.images[1].set_array(ax.red_foreground)
-
-    # @staticmethod
-    # def _next_slice(ax: matplotlib.axes.Axes) -> None:
-    #     volume = ax.volume
-    #     ax.index = (ax.index + 1) % volume.shape[0]
-    #     ax.images[0].set_array(volume[ax.index])
-    #     if ax.bboxes is not None:
-    #         ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    #         ax.images[1].set_array(ax.red_foreground)
-
-    # @staticmethod
-    # def _previous_jump(ax: matplotlib.axes.Axes) -> None:
-    #     volume = ax.volume
-    #     ax.index = (ax.index - volume.shape[0] // 10) % volume.shape[
-    #         0
-    #     ]  # wrap around using %
-    #     ax.images[0].set_array(volume[ax.index])
-    #     if ax.bboxes is not None:
-    #         ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    #         ax.images[1].set_array(ax.red_foreground)
-
-    # @staticmethod
-    # def _next_jump(ax: matplotlib.axes.Axes):
-    #     volume = ax.volume
-    #     ax.index = (ax.index + volume.shape[0] // 10) % volume.shape[
-    #         0
-    #     ]  # wrap around using %
-    #     ax.images[0].set_array(volume[ax.index])
-    #     if ax.bboxes is not None:
-    #         ax.red_foreground[..., 3] = ax.bboxes[ax.index] * ax.bbox_alpha
-    #         ax.images[1].set_array(ax.red_foreground)
 
     @staticmethod
     def _select_rectangle() -> tuple[int, int, int, int]:
@@ -214,6 +177,110 @@ class MultiSliceViewer:
                 remove_list = set(keys) & new_keys_set
                 for key in remove_list:
                     keys.remove(key)
+
+
+class MultiSliceViewerDuo(MultiSliceViewer):
+
+    def __init__(
+        self,
+        lognorm: bool = False,
+        cmap: str = "gray",
+    ) -> None:
+
+        self.key_bindings = self._create_key_bindings()
+        self._remove_keymap_conflicts(set(self.key_bindings.keys()))
+        self.fig, (self.ax1, self.ax2) = plt.subplots(1, 2)
+        self.lognorm = lognorm
+        self.cmap = cmap
+
+        self.fig.canvas.mpl_connect(
+            "key_press_event",
+            partial(
+                self._process_key,
+                key_bindings=self.key_bindings,
+            ),
+        )
+
+    def plot(
+        self,
+        volume1: np.ndarray,
+        volume2: np.ndarray,
+    ):
+        assert volume1.shape == volume2.shape
+        self.ax1.volume = volume1
+        self.ax1.index = volume1.shape[0] // 2
+        self.ax2.volume = volume2
+        self.ax2.index = volume2.shape[0] // 2
+
+        if self.lognorm:
+            norm1 = colors.LogNorm(vmin=volume1.min(), vmax=volume1.max())
+            norm2 = colors.LogNorm(vmin=volume2.min(), vmax=volume2.max())
+        else:
+            norm1 = colors.Normalize()
+            norm2 = colors.Normalize()
+
+        self.ax1.imshow(volume1[self.ax1.index], norm=norm1, cmap=self.cmap)
+        self.ax2.imshow(volume2[self.ax2.index], norm=norm2, cmap=self.cmap)
+
+        self.fig.canvas.manager.set_window_title(
+            f"Slice {self.ax1.index}/{volume1.shape[0]}"
+        )
+
+    @classmethod
+    def display(
+        cls,
+        image_stack1: np.ndarray,
+        image_stack2: np.ndarray,
+        **kwargs,
+    ) -> None:
+        viewer = cls(**kwargs)
+        viewer.plot(volume1=image_stack1, volume2=image_stack2)
+        viewer.show()
+        return viewer
+
+    @classmethod
+    def display_file():
+        raise NotImplementedError
+
+    def _increment_slice(
+        ax1: matplotlib.axes.Axes,
+        ax2: matplotlib.axes.Axes,
+        n: int,
+        jump: bool = False,
+    ) -> None:
+
+        axes = ax1, ax2
+        volumes = ax1.volume, ax2.volume
+
+        for ax, volume in zip(axes, volumes):
+            if jump:
+                ax.index = (ax.index + volume.shape[0] // n) % volume.shape[0]
+            else:
+                ax.index = (ax.index + n) % volume.shape[0]
+
+            ax.images[0].set_array(volume[ax.index])
+
+    @staticmethod
+    def _process_key(event, key_bindings: dict) -> None:
+        fig = event.canvas.figure
+        ax1 = fig.axes[0]
+        ax2 = fig.axes[1]
+        for key, method in key_bindings.items():
+            if event.key == key:
+                method(ax1=ax1, ax2=ax2)
+        fig.canvas.draw()
+        # fmt: off
+        (fig.canvas.manager
+        .set_window_title(f"Slice {ax1.index}/{ax1.volume.shape[0]}"))
+        # fmt: on
+
+    @staticmethod
+    def _crop_xy():
+        raise NotImplementedError
+
+    @staticmethod
+    def _remove_xy():
+        raise NotImplementedError
 
 
 if __name__ == "__main__":
