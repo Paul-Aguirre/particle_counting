@@ -9,41 +9,89 @@ from plane import Plane, Region
 def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
-    particle_diameter: float | None = None,  # in microns
+    results: dict = {},
     morph_open: bool = True,
-    full_bbox: bool = True,
+    particle_diameter_um: float | None = None,  # in microns
+    full_bboxes: bool = True,
     spacing: tuple[float, float, float] | None = None,
     capsule: bool = False,
+    filtering_plane: Plane = Plane.XY,
 ) -> dict:
 
-    # todo : devide the process_stack() function into smaller ones
-    # todo : for specific processing (base stack, capsule, etc.)
-
-    results = {}
     # * Isolating the particles by thresholding
-    thresh = filters.threshold_otsu(image_stack)
-    processed_stack = image_stack > thresh
-
+    thresh, processed_stack = threshold_stack(image_stack=image_stack)
     results.update(ostu_threshold=thresh, binary=processed_stack)
 
     if morph_open:
-        # * Separating grouped particles for later counting
-        structuring_element = morphology.ball(
-            max(
-                1, particle_diameter / metadata["pixel_microns"] / 2
-            )  # radius in pixels
+        processed_stack = morphological_opening(
+            processed_stack=processed_stack,
+            metadata=metadata,
+            particle_diameter_um=particle_diameter_um,
         )
+    results.update(binary_opened=processed_stack)
 
-        processed_stack = morphology.binary_opening(
-            processed_stack, structuring_element
+    # * Labeling and measuring particles properties
+    labels, props = measure_particles(
+        processed_stack=processed_stack,
+        metadata=metadata,
+    )
+    results.update(labels=labels, props=props)
+
+    # * Creating a stack of bboxes for displaying
+    bboxes3d = create_bboxes_stack(
+        processed_stack=processed_stack,
+        props=props,
+        full_bboxes=full_bboxes,
+    )
+    results.update(bboxes3d=bboxes3d)
+
+    # * Correcting spacing (optinnal) in order to make the tracers
+    # * appear as spheres
+    if spacing:
+        spacing_corrected_props = get_spacing_correction(
+            labels=labels,
+            spacing=spacing,
         )
-        results.update(binary_opened=processed_stack)
-    else:
-        results.update(binary_opened=None)
+        results.update(spacing_corrected_props=spacing_corrected_props)
 
-    # * Detecting and labeling particles
+    # * Determine the convex hull (applicable for capsules)
+    # (usable to determine capsule volume)
+    if capsule:
+        hull, hull_props = process_capsule_stack(
+            processed_stack=processed_stack,
+            props=props,
+            metadata=metadata,
+            plane=filtering_plane,
+        )
+        results.update(hull=hull, hull_props=hull_props)
+
+    return results
+
+
+def threshold_stack(image_stack: np.ndarray) -> tuple[int, np.ndarray]:
+    thresh = filters.threshold_otsu(image_stack)
+    processed_stack = image_stack > thresh
+    return thresh, processed_stack
+
+
+def morphological_opening(
+    processed_stack: np.ndarray,
+    metadata: dict,
+    particle_diameter_um: float,
+) -> np.ndarray:
+    structuring_element = morphology.ball(  # radius in pixels:
+        max(1, particle_diameter_um / metadata["pixel_microns"] / 2)
+    )
+
+    processed_stack = morphology.binary_opening(
+        image=processed_stack,
+        footprint=structuring_element,
+    )
+    return processed_stack
+
+
+def measure_particles(processed_stack: np.ndarray, metadata: dict) -> None:
     labels = measure.label(processed_stack)
-    results.update(labels=labels)
 
     props = measure.regionprops(
         labels,
@@ -53,12 +101,16 @@ def process_stack(
             metadata["pixel_microns"],  # x
         ),
     )
-    results.update(props=props)
+    return labels, props
 
-    # * Creating a stack of bboxes for displaying
+
+def create_bboxes_stack(
+    processed_stack: np.ndarray,
+    props: Region,
+    full_bboxes: bool = False,
+) -> None:
     bboxes3d = np.zeros(processed_stack.shape, dtype=np.uint8)
-
-    if full_bbox:
+    if full_bboxes:
         for prop in props:
             minz, minr, minc, maxz, maxr, maxc = prop.bbox
             zz, rr, cc = draw.rectangle(
@@ -77,43 +129,43 @@ def process_stack(
                     shape=processed_stack.shape[1:],
                 )
                 bboxes3d[z, rr, cc] = 1
-    results.update(bboxes3d=bboxes3d)
+    return bboxes3d
 
-    # * Correcting spacing (optinnal) in order to make the tracers
-    # * appear as spheres
-    if spacing:
-        spacing_corrected_props = measure.regionprops(
-            labels,
-            spacing=spacing,
-        )
-        results.update(spacing_corrected_props=spacing_corrected_props)
-    else:
-        results.update(spacing_corrected_props=None)
 
-    # * Determine the convex hull (applicable for capsules)
-    # (usable to determine capsule volume)
-    if capsule:
-        filtered_hull_slices = get_filtered_stack(
-            image_stack=processed_stack,
-            regions=props,
-            threshold=20,
-            plane=Plane.XY,
-        )
-        hull = morphology.convex_hull_image(filtered_hull_slices)
-        labeled_hull = measure.label(hull)
-        hull_props = measure.regionprops(
-            labeled_hull,
-            spacing=(
-                np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
-                metadata["pixel_microns"],  # y
-                metadata["pixel_microns"],  # x
-            ),
-        )
-        results.update(hull=hull, hull_props=hull_props)
-    else:
-        results.update(hull=None, hull_props=None)
+def get_spacing_correction(
+    labels: np.ndarray,
+    spacing: tuple[int, int, int],
+) -> None:
+    spacing_corrected_props = measure.regionprops(
+        label_image=labels,
+        spacing=spacing,
+    )
+    return spacing_corrected_props
 
-    return results
+
+def process_capsule_stack(
+    processed_stack: np.ndarray,
+    props: list[Region],
+    metadata: dict,
+    plane: Plane = Plane.XY,
+) -> None:
+    filtered_hull_slices = get_filtered_stack(
+        image_stack=processed_stack,
+        regions=props,
+        threshold=20,
+        plane=plane,
+    )
+    hull = morphology.convex_hull_image(filtered_hull_slices)
+    labeled_hull = measure.label(hull)
+    hull_props = measure.regionprops(
+        labeled_hull,
+        spacing=(
+            np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
+            metadata["pixel_microns"],  # y
+            metadata["pixel_microns"],  # x
+        ),
+    )
+    return hull, hull_props
 
 
 def count_crossed_bboxes(
@@ -145,18 +197,6 @@ def count_crossed_bboxes(
                 bboxes_crossed_by_slices[i] += 1
 
     return bboxes_crossed_by_slices
-
-
-# def are_elements_consecutive(lst: list[int], sort: bool = True) -> bool:
-#     if sort:
-#         lst_copy = sorted(lst)
-#     else:
-#         lst_copy = lst.copy()
-
-#     for i in range(1, len(lst_copy)):
-#         if lst_copy[i] != lst_copy[i - 1] + 1:
-#             return False
-#     return True
 
 
 def find_unconsecutives(

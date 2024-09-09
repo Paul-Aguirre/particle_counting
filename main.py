@@ -61,8 +61,8 @@ def main(
     results = process_stack(
         image_stack=image_stack,
         metadata=metadata,
-        particle_diameter=config["particle_size_microns"],
-        full_bbox=False,
+        particle_diameter_um=config["particle_size_microns"],
+        full_bboxes=False,
     )
 
     # * Displaying (optionnal) stack in MultiSliceViewer
