@@ -7,7 +7,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from process_stack import process_stack
-from multi_slice_viewer import MultiSliceViewer, make_bbox_overlay, RGBColorIndex
+from multi_slice_viewer import MultiSliceViewer, make_colored_overlay, RGBColorIndex
 from particle_distributions import particle_distributions
 from files_inputs import load_image_stack, check_config
 
@@ -71,7 +71,7 @@ def main(
         viewer.plot(
             # volume=results["binary"],
             volume=image_stack,
-            overlay=make_bbox_overlay(
+            overlay=make_colored_overlay(
                 bboxes=results["bboxes3d"],
                 alpha=0.5,
                 color_index=RGBColorIndex.RED,

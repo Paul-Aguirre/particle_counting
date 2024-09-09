@@ -23,10 +23,10 @@ class RGBColorIndex(Enum):
     WHITE = 0, 1, 2
 
 
-def make_bbox_overlay(
+def make_colored_overlay(
     bboxes: np.ndarray,
     alpha: float,
-    color_index: int | RGBColorIndex,
+    color_index: tuple[int, int, int] | RGBColorIndex,
 ):
     bbox_overlay = np.zeros(
         (*bboxes.shape, 4),

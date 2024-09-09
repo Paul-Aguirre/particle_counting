@@ -1,3 +1,5 @@
+"""_summary_"""
+
 import numpy as np
 from skimage import filters, measure, morphology, draw
 
@@ -15,7 +17,7 @@ def process_stack(
 ) -> dict:
 
     # todo : devide the process_stack() function into smaller ones
-    # todo : for specific processing
+    # todo : for specific processing (base stack, capsule, etc.)
 
     results = {}
     # * Isolating the particles by thresholding
@@ -129,35 +131,14 @@ def count_crossed_bboxes(
         the indices on the axis along which the counting occurs.
     """
     span = shape[plane.normal_axis]
-    bboxes_in_slices = [0] * span
+    bboxes_crossed_by_slices = [0] * span
 
     for i in range(span):
         for region in regions:
             if plane.crosses(region, index=i):
-                bboxes_in_slices[i] += 1
+                bboxes_crossed_by_slices[i] += 1
 
-    return bboxes_in_slices
-
-
-def filter_slices(bboxes_in_slices: list[int], threshold: int):
-    """Filters out the slices that cross a number of regions lower than
-    a specified threshold.
-
-    Args:
-        bboxes_in_slices (list[int]): Contains as elements the numbers
-        of regions crossed by every plane in the specified familly.
-        Indices represent the indices on the axis along which the
-        counting occurs.
-        threshold (int): Threshold below which a slice is filtered out.
-
-    Returns:
-        list: The filtered list.
-    """
-    return [
-        i
-        for i, bboxes_in_slice in enumerate(bboxes_in_slices)
-        if bboxes_in_slice > threshold
-    ]
+    return bboxes_crossed_by_slices
 
 
 # def are_elements_consecutive(lst: list[int], sort: bool = True) -> bool:
@@ -172,7 +153,10 @@ def filter_slices(bboxes_in_slices: list[int], threshold: int):
 #     return True
 
 
-def find_unconsecutives(lst: list[int], sort: bool = True) -> list[tuple[int, int]]:
+def find_unconsecutives(
+    lst: list[int],
+    sort: bool = True,
+) -> list[tuple[int, int]]:
     """Scans a list of intengers for elements that are not consecutive
     and return their indices in a list of tuples.
 
@@ -190,21 +174,24 @@ def find_unconsecutives(lst: list[int], sort: bool = True) -> list[tuple[int, in
     else:
         lst_copy = lst.copy()
 
-    unconsecutives = []
+    unconsecutive_indices = []
 
     for i in range(1, len(lst_copy)):
         if lst_copy[i] != lst_copy[i - 1] + 1:
-            unconsecutives.append((i - 1, i))
+            unconsecutive_indices.append((i - 1, i))
 
-    return unconsecutives
+    return unconsecutive_indices
 
 
-def fill_unconsecutive(lst: list[int], unconsecutives: list[tuple[int, int]]):
+def fill_unconsecutive(
+    lst: list[int],
+    unconsecutive_indices: list[tuple[int, int]],
+):
     """Fills in the gap of a list given list of its unconsecutivies.
 
     Args:
         lst (list[int]): The list to be filled in.
-        unconsecutives (list[tuple[int, int]]): The list of its
+        unconsecutive_indices (list[tuple[int, int]]): The list of its
         unceonsecutivities in the form of tuples containing the indices
         of the elements bordering the unconsecutivities.
 
@@ -213,7 +200,7 @@ def fill_unconsecutive(lst: list[int], unconsecutives: list[tuple[int, int]]):
     """
     lst_copy = lst.copy()
 
-    for start, stop in unconsecutives:
+    for start, stop in unconsecutive_indices:
         lst_copy.extend(list(range(lst[start] + 1, lst[stop])))
 
     lst_copy.sort()

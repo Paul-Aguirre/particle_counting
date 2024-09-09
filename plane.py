@@ -25,7 +25,7 @@ class Plane(StrEnum):
                 index = 2
         return index
 
-    def slice(self, index: int | list[int]):
+    def plane_selection_tuple(self, index: int | list[int]):
         match self:
             case Plane.XY:
                 indices = (index, slice(None), slice(None))
@@ -39,7 +39,7 @@ class Plane(StrEnum):
 
     def middle_slice(self, span: int):
         # todo : does not need stack => only needs span (stack.shape[i])
-        return self.slice(index=span // 2)
+        return self.plane_selection_tuple(index=span // 2)
 
     def crosses(self, region: Region, index: int) -> bool:
         minz, miny, minx, maxz, maxy, maxx = region.bbox
