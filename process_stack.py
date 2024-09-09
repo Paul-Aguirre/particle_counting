@@ -93,7 +93,13 @@ def process_stack(
     # * Determine the convex hull (applicable for capsules)
     # (usable to determine capsule volume)
     if capsule:
-        hull = morphology.convex_hull_image(processed_stack)
+        filtered_hull_slices = get_filtered_stack(
+            image_stack=processed_stack,
+            regions=props,
+            threshold=20,
+            plane=Plane.XY,
+        )
+        hull = morphology.convex_hull_image(filtered_hull_slices)
         labeled_hull = measure.label(hull)
         hull_props = measure.regionprops(
             labeled_hull,
@@ -210,7 +216,7 @@ def fill_unconsecutive(
 
 def get_hull_slices(image_stack: np.ndarray, plane: Plane) -> np.ndarray:
     """Scans a stack of binary images and computes the convex hull
-    of a binary image
+    of each binary image and returns it as a binary image stack.
 
     Args:
         image_stack (np.ndarray): A stack a binary images.
@@ -222,53 +228,88 @@ def get_hull_slices(image_stack: np.ndarray, plane: Plane) -> np.ndarray:
         slice in image_stack.
     """
 
-    hull_stack = np.zeros(image_stack.shape[plane.normal_axis])
+    hull_stack = np.zeros(image_stack.shape)
     for i in range(image_stack.shape[plane.normal_axis]):
-        hull_stack[plane.slice(i)] = morphology.convex_hull_image(
-            image_stack[plane.slice(i)]
+        hull_stack[plane.plane_selection_tuple(i)] = morphology.convex_hull_image(
+            image_stack[plane.plane_selection_tuple(i)]
         )
     return hull_stack
 
 
-def get_filtered_hull_slices(
+def get_filtered_stack(
     image_stack: np.ndarray,
     regions: list[Region],
     threshold: int,
     plane: Plane,
 ) -> np.ndarray:
-    """Computes the convex hull of a binary image stack but filters out
-    the slices which a below threshold number of regions in them while
-    keeping consecutivity of the slices.
+    """Filters out the slices  in an image stack which a below
+    a threshold number of regions in them while keeping consecutivity
+    of the slices.
 
     Args:
-        image_stack (np.ndarray): A binary image stack containning
-        patches of True values to be enclosed in a convex hull.
-        regions (list[Region]): A list of regions following the Region
-        protocol.
+        image_stack (np.ndarray): A binary image stack, typically
+        containning patches of True values (eg. tracers image stack).
+        regions (list[Region]): A list of regions corresponding to
+        the patches in the image stack, following the Region protocol.
         Typically the result of skimage.measure.regionprops() call.
         threshold (int): A threshold value below which a slice
         is filtered out.
-        plane (Plane): A plane family in which the convex hull slices
-        will be computed.
+        plane (Plane): A plane family in which the regions are counted.
 
     Returns:
-        np.ndarray: A stack of binary convex hull images. It is often
-        smaller chape than the input image_stack.
+        np.ndarray: A copy of the inital image stack with filtered out
+        slices set to all False.
     """
-    # count the number of bboxes crossing each plane
-    bboxes_in_slices = count_crossed_bboxes(plane, regions, image_stack.shape)
-
-    # remove the planes with too little amount of tracers
-    filtered_slices = filter_slices(bboxes_in_slices, threshold)
-
-    # check if the remaining slices are still consecutive
-    unconsecutives = find_unconsecutives(filtered_slices, sort=False)
-    filled_slices = fill_unconsecutive(filtered_slices, unconsecutives)
-
-    # compute convex hull with remaining planes
-    filtered_hull_slices = get_hull_slices(
-        image_stack=image_stack[plane.slice(filled_slices)],
+    # count the number of bboxes crossed by each plane
+    bboxes_crossed_by_slices = count_crossed_bboxes(
         plane=plane,
+        regions=regions,
+        shape=image_stack.shape,
     )
 
-    return filtered_hull_slices
+    # remove the planes with too little amount of tracers
+    filtered_slices_inidces = [
+        i
+        for i, elt in enumerate(
+            bboxes_crossed_by_slices,
+        )
+        if elt > threshold
+    ]
+
+    # check if the remaining slices are still consecutive
+    unconsecutive_indices = find_unconsecutives(
+        lst=filtered_slices_inidces,
+        sort=False,
+    )
+    filled_slices_indices = fill_unconsecutive(
+        lst=filtered_slices_inidces,
+        unconsecutive_indices=unconsecutive_indices,
+    )
+
+    # compute convex hull with remaining planes
+    # filtered_hull_slices = get_hull_slices(
+    #     image_stack=image_stack[plane.slice(filled_slices_indices)],
+    #     plane=plane,
+    # )
+
+    # or just get the slices without computing the convex hull on each one
+    # filtered_stack = image_stack[plane.slice(filled_slices_indices)]
+
+    # making sure the input and output stack are the same size
+    filtered_stack = image_stack.copy()
+    filled_slices_indices = {
+        plane.plane_selection_tuple(i) for i in filled_slices_indices
+    }
+    excluded_slice_indices = {
+        plane.plane_selection_tuple(i)
+        for i in range(
+            image_stack.shape[plane.normal_axis],
+        )
+    }
+    excluded_slice_indices.difference_update(filled_slices_indices)
+
+    for i in excluded_slice_indices:
+        filtered_stack[i] = 0
+
+    # return filtered_hull_slices
+    return filtered_stack
