@@ -25,16 +25,16 @@ class RGBColorIndex(Enum):
 
 
 def make_colored_overlay(
-    bboxes: np.ndarray,
+    volume: np.ndarray,
     alpha: float,
     color_index: tuple[int, int, int] | RGBColorIndex,
 ):
     bbox_overlay = np.zeros(
-        (*bboxes.shape, 4),
+        (*volume.shape, 4),
         dtype=np.float64,
     )
     for i in color_index.value:
-        bbox_overlay[..., i] = bboxes
+        bbox_overlay[..., i] = volume
     bbox_overlay[..., 3] = alpha
 
     return bbox_overlay
@@ -111,7 +111,7 @@ class MultiSliceViewer:
         viewer = cls.display(image_stack, **kwargs)
         return viewer
 
-    def save(self, file):
+    def save(self, file: str | Path):
         np.save(file, self.ax.volume)
 
     @classmethod

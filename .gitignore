@@ -3,6 +3,7 @@
 *.nd2
 *.toml
 *.npy
+*.pickle
 *.pptx
 .venv
 .vscode

@@ -72,7 +72,7 @@ def main(
             # volume=results["binary"],
             volume=image_stack,
             overlay=make_colored_overlay(
-                bboxes=results["bboxes3d"],
+                volume=results["bboxes3d"],
                 alpha=0.5,
                 color_index=RGBColorIndex.RED,
             ),
