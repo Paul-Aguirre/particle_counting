@@ -1,4 +1,5 @@
 from tkinter.filedialog import askopenfilename
+from tkinter.messagebox import askyesno
 from pathlib import Path
 from functools import partial
 from typing import Callable
@@ -110,6 +111,9 @@ class MultiSliceViewer:
         viewer = cls.display(image_stack, **kwargs)
         return viewer
 
+    def save(self, file):
+        np.save(file, self.ax.volume)
+
     @classmethod
     def _create_key_bindings(cls) -> dict[str, Callable]:
 
@@ -129,6 +133,7 @@ class MultiSliceViewer:
             "l": _next_jump,
             "c": cls._crop_xy,
             "r": cls._remove_xy,
+            "s": cls._save_volume,
         }
 
     @staticmethod
@@ -184,9 +189,11 @@ class MultiSliceViewer:
         ax.volume = volume
         ax.images[0].set_array(ax.volume[ax.index])
 
-    # def save_volume(ax):
-    #     global volume
-    #     volume = ax.volume
+    def _save_volume(ax: matplotlib.axes.Axes):
+        if askyesno(message="Do you want to save this stack?"):
+            filename = "volume.npy"
+            np.save(filename, ax.volume)
+            print(f'Stack saved as "{filename}" in {Path.cwd()}.')
 
     @staticmethod
     def _remove_keymap_conflicts(new_keys_set):
@@ -296,11 +303,14 @@ class MultiSliceViewerDuo(MultiSliceViewer):
         # fmt: on
 
     @staticmethod
-    def _crop_xy():
+    def _crop_xy(*args, **kwargs):
         raise NotImplementedError
 
     @staticmethod
-    def _remove_xy():
+    def _remove_xy(*args, **kwargs):
+        raise NotImplementedError
+
+    def _save_volume(*args, **kwargs):
         raise NotImplementedError
 
 
@@ -309,7 +319,12 @@ if __name__ == "__main__":
     # to image_stack and metadata after execution
     path = Path(askopenfilename())
     print(f"Openning '{path.name}'.")
-    image_stack, metadata = load_image_stack(path=str(path))
+    if path.suffix == ".nd2":
+        image_stack, metadata = load_image_stack(path=str(path))
+    elif path.suffix == ".npy":
+        image_stack = np.load(path)
+    else:
+        raise ValueError('File must be valid "NPY" or "ND2" format.')
     viewer = MultiSliceViewer(lognorm=True)
     viewer.plot(volume=image_stack)
     viewer.show()
