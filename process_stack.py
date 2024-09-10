@@ -15,6 +15,7 @@ def process_stack(
     full_bboxes: bool = True,
     spacing: tuple[float, float, float] | None = None,
     capsule: bool = False,
+    use_centroids: bool = False,
     filtering_plane: Plane = Plane.XY,
 ) -> dict:
 
@@ -31,11 +32,11 @@ def process_stack(
     results.update(binary_opened=processed_stack)
 
     # * Labeling and measuring particles properties
-    labels, props = measure_particles(
+    labels, props, scaled_props = measure_particles(
         processed_stack=processed_stack,
         metadata=metadata,
     )
-    results.update(labels=labels, props=props)
+    results.update(labels=labels, props=props, scaled_props=scaled_props)
 
     # * Creating a stack of bboxes for displaying
     bboxes3d = create_bboxes_stack(
@@ -53,6 +54,14 @@ def process_stack(
             spacing=spacing,
         )
         results.update(spacing_corrected_props=spacing_corrected_props)
+
+    # * Extracting the centroids
+    if use_centroids:
+        processed_stack = make_centroids_stack(
+            props=props,
+            shape=processed_stack.shape,
+        )
+        results.update(centroids_stack=processed_stack)
 
     # * Determine the convex hull (applicable for capsules)
     # (usable to determine capsule volume)
@@ -93,7 +102,8 @@ def morphological_opening(
 def measure_particles(processed_stack: np.ndarray, metadata: dict) -> None:
     labels = measure.label(processed_stack)
 
-    props = measure.regionprops(
+    props = measure.regionprops(labels)
+    scaled_props = measure.regionprops(
         labels,
         spacing=(
             np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
@@ -101,7 +111,7 @@ def measure_particles(processed_stack: np.ndarray, metadata: dict) -> None:
             metadata["pixel_microns"],  # x
         ),
     )
-    return labels, props
+    return labels, props, scaled_props
 
 
 def create_bboxes_stack(
@@ -141,6 +151,20 @@ def get_spacing_correction(
         spacing=spacing,
     )
     return spacing_corrected_props
+
+
+def make_centroids_stack(props: Region, shape: tuple[int, int, int]):
+
+    centroids_coords = [prop.centroid for prop in props]
+    centroids_stack = np.zeros(shape=shape, dtype=bool)
+    for coords in centroids_coords:
+        try:
+            rounded_coords = tuple([int(coord.round()) for coord in coords])
+            centroids_stack[rounded_coords] = True
+        except IndexError:
+            pass
+
+    return centroids_stack
 
 
 def process_capsule_stack(
