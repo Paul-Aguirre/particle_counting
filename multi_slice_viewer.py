@@ -1,4 +1,4 @@
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askopenfilename, askdirectory
 from tkinter.messagebox import askyesno
 from pathlib import Path
 from functools import partial
@@ -10,8 +10,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import colors
 import matplotlib
+import toml
 
-from files_inputs import load_image_stack
+from files_inputs import load_image_stack, check_config
 
 
 class RGBColorIndex(Enum):
@@ -31,11 +32,12 @@ def make_colored_overlay(
 ):
     bbox_overlay = np.zeros(
         (*volume.shape, 4),
-        dtype=np.float64,
+        dtype=np.float32,
     )
     for i in color_index.value:
         bbox_overlay[..., i] = volume
-    bbox_overlay[..., 3] = alpha
+    bbox_overlay[..., 3] = np.nan_to_num(volume / volume) * alpha
+    # todo see if possible to silence zero division warning
 
     return bbox_overlay
 
@@ -45,6 +47,7 @@ class MultiSliceViewer:
         self,
         lognorm: bool = False,
         cmap: str = "gray",
+        datafile: Path | None = None,
     ) -> None:
 
         self.key_bindings = self._create_key_bindings()
@@ -52,6 +55,10 @@ class MultiSliceViewer:
         self.fig, self.ax = plt.subplots()
         self.lognorm = lognorm
         self.cmap = cmap
+        if datafile:
+            self.datafile: Path | None = Path(datafile)
+        else:
+            self.datafile: Path | None = None
 
         self.fig.canvas.mpl_connect(
             "key_press_event",
@@ -83,9 +90,7 @@ class MultiSliceViewer:
                     f"(shape: {volume.shape}) must have compatible shapes."
                 )
 
-            self.ax.overlay = overlay
-
-            self.ax.imshow(overlay[self.ax.index])
+            self.update_overlay(overlay)
 
         else:
             self.ax.overlay = None
@@ -93,6 +98,15 @@ class MultiSliceViewer:
         self.fig.canvas.manager.set_window_title(
             f"Slice {self.ax.index}/{volume.shape[0]}"
         )
+
+    def update_overlay(self, overlay):
+
+        if (not hasattr(self.ax, "overlay")) or self.ax.overlay is None:
+            self.ax.overlay = overlay
+        else:
+            self.ax.overlay[overlay != 0] = overlay[overlay != 0]
+
+        self.ax.imshow(overlay[self.ax.index])
 
     @staticmethod
     def show() -> None:
@@ -114,16 +128,16 @@ class MultiSliceViewer:
     def save(self, file: str | Path):
         np.save(file, self.ax.volume)
 
-    @classmethod
-    def _create_key_bindings(cls) -> dict[str, Callable]:
+    # @classmethod
+    def _create_key_bindings(self) -> dict[str, Callable]:
 
-        _previous_slice = partial(cls._increment_slice, n=-1)
+        _previous_slice = partial(self._increment_slice, n=-1)
         _previous_slice = staticmethod(_previous_slice)
-        _next_slice = partial(cls._increment_slice, n=1)
+        _next_slice = partial(self._increment_slice, n=1)
         _next_slice = staticmethod(_next_slice)
-        _previous_jump = partial(cls._increment_slice, n=-10, jump=True)
+        _previous_jump = partial(self._increment_slice, n=-10, jump=True)
         _previous_jump = staticmethod(_previous_jump)
-        _next_jump = partial(cls._increment_slice, n=10, jump=True)
+        _next_jump = partial(self._increment_slice, n=10, jump=True)
         _next_jump = staticmethod(_next_jump)
 
         return {
@@ -131,13 +145,13 @@ class MultiSliceViewer:
             "k": _next_slice,
             "h": _previous_jump,
             "l": _next_jump,
-            "c": cls._crop_xy,
-            "r": cls._remove_xy,
-            "s": cls._save_volume,
+            "c": self._crop_xy,
+            "r": self._remove_xy,
+            "s": self._save_volume,
+            "z": self._select_substack,
         }
 
-    @staticmethod
-    def _process_key(event, key_bindings: dict) -> None:
+    def _process_key(self, event, key_bindings: dict) -> None:
         fig = event.canvas.figure
         ax = fig.axes[0]
         for key, method in key_bindings.items():
@@ -189,11 +203,51 @@ class MultiSliceViewer:
         ax.volume = volume
         ax.images[0].set_array(ax.volume[ax.index])
 
-    def _save_volume(ax: matplotlib.axes.Axes):
+    @staticmethod
+    def _save_volume(ax: matplotlib.axes.Axes) -> None:
         if askyesno(message="Do you want to save this stack?"):
             filename = "volume.npy"
             np.save(filename, ax.volume)
             print(f'Stack saved as "{filename}" in {Path.cwd()}.')
+
+    def _check_datafile_config(self) -> tuple[Path, Path, Path]:
+        if not self.datafile:
+            self.datafile = Path(
+                askopenfilename(
+                    title="Choose a datafile",
+                )
+            )
+        return check_config(self.datafile)
+
+    def _select_substack(self, ax: matplotlib.axes.Axes):
+
+        xmin, xmax, ymin, ymax = self._select_rectangle()
+        selection_coords = {
+            "xmin": int(xmin),
+            "xmax": int(xmax),
+            "ymin": int(ymin),
+            "ymax": int(ymax),
+        }
+
+        *_, configpath = self._check_datafile_config()
+        with open(configpath, "r") as f:
+            config = toml.load(f)
+        if "selections" not in config.keys():
+            config["selections"] = []
+        config["selections"].append(selection_coords)
+        with open(configpath, "w") as f:
+            toml.dump(config, f)
+
+        ax.add_patch(
+            plt.Rectangle(
+                (xmin, ymin),
+                width=xmax - xmin,
+                height=ymax - ymin,
+                color="C2",
+                zorder=1,
+                fill=False,
+            )
+        )
 
     @staticmethod
     def _remove_keymap_conflicts(new_keys_set):
