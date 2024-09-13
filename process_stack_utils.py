@@ -94,7 +94,7 @@ def make_centroids_stack(props: Region, shape: tuple[int, int, int]):
     return centroids_stack
 
 
-def process_capsule_stack(
+def process_capsule_hull(
     processed_stack: np.ndarray,
     props: list[Region],
     metadata: dict,

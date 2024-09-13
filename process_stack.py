@@ -11,7 +11,7 @@ from process_stack_utils import (
     create_bboxes_stack,
     get_spacing_correction,
     make_centroids_stack,
-    process_capsule_stack,
+    process_capsule_hull,
 )
 
 
@@ -75,7 +75,7 @@ def process_stack(
     # * Determine the convex hull (applicable for capsules)
     # (usable to determine capsule volume)
     if capsule:
-        hull, hull_props = process_capsule_stack(
+        hull, hull_props = process_capsule_hull(
             processed_stack=processed_stack,
             props=props,
             metadata=metadata,
