@@ -44,7 +44,7 @@ def check_config(
 ):
     datapath = Path(datapath)
     dirpath = datapath.parent / f"{datapath.stem}"
-    configpath = dirpath / f"{datapath.stem}.toml"
+    configpath = dirpath / f"{datapath.stem}_config.toml"
 
     if not dirpath.exists():
         dirpath.mkdir()

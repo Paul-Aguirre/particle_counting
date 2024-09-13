@@ -1,10 +1,10 @@
-from enum import Enum
 from tkinter.filedialog import askopenfilename
 import tomllib
 from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+import toml
 
 from process_stack import process_stack
 from multi_slice_viewer import MultiSliceViewer, make_colored_overlay, RGBColorIndex
@@ -12,33 +12,7 @@ from particle_distributions import particle_distributions
 from files_inputs import load_image_stack, check_config
 
 
-# class RGBColorIndex(Enum):
-#     RED = (0,)
-#     GREEN = (1,)
-#     BLUE = (2,)
-#     YELLOW = 0, 1
-#     PURPLE = 0, 2
-#     CYAN = 1, 2
-#     WHITE = 0, 1, 2
-
-
-# def make_bbox_overlay(
-#     bboxes: np.ndarray,
-#     alpha: float,
-#     color_index: int | RGBColorIndex,
-# ):
-#     bbox_overlay = np.zeros(
-#         (*bboxes.shape, 4),
-#         dtype=np.float64,
-#     )
-#     for i in color_index:
-#         bbox_overlay[..., i] = bboxes
-#     bbox_overlay[..., 3] = alpha
-
-#     return bbox_overlay
-
-
-def main(
+def process_reference_sample(
     datapath: str | Path,
     view_stack: bool = True,
     view_distributions: bool = True,
@@ -146,9 +120,28 @@ def main(
     if view_distributions:
         plt.show()
 
+    # * Dumping reference sample results in a file.
+    # todo: add units and validation values from plots (medians)
+    ref_results = {
+        "zstep": np.mean(np.diff(np.array(metadata["z_coordinates"]))),
+        "total_volume": total_volume,
+        "num_particles_counted": num_particles,
+        "num_particle_concentration": particle_concentration,
+        "vol_particles_counted": num_particles_in_volume,
+        "vol_particle_concentration": particle_concentration_in_volume,
+        "median_num_pixels": median_num_pixels,  # ?
+    }
+    ref_results_file = dirpath / f"{datapath.stem}_reference_results.toml"
+
+    with open(ref_results_file, "w") as f:
+        toml.dump(ref_results, f)
+
     return image_stack, metadata, results, histograms, plots
 
 
 if __name__ == "__main__":
     datapath = Path(askopenfilename(title="Choose a data file"))
-    image_stack, metadata, results, histograms, plots = main(datapath)
+    # fmt: off
+    image_stack, metadata, results, histograms, plots =\
+        process_reference_sample(datapath)
+    # fmt: on
