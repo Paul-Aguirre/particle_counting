@@ -27,8 +27,8 @@ def process_reference_sample(
     # * Loading image stack
     image_stack, metadata = load_image_stack(
         str(datapath),
-        start=config["stack_start"],
-        stop=config["stack_stop"],
+        zstart=config["stack_start"],
+        zstop=config["stack_stop"],
     )
 
     # * processing image stack

@@ -8,29 +8,43 @@ import toml
 
 
 def load_image_stack(
-    path: str,
-    start: int = 0,
-    stop: int | None = None,
+    path: str | Path,
+    xstart: int = 0,
+    xstop: int | None = None,
+    ystart: int = 0,
+    ystop: int | None = None,
+    zstart: int = 0,
+    zstop: int | None = None,
 ) -> tuple[np.ndarray, dict]:
 
-    with ND2Reader(path) as images:
+    with ND2Reader(str(path)) as images:
         image_stack = np.array([frame for frame in images])
         metadata = images.metadata
 
-    image_stack = image_stack[start:stop]
-    metadata["z_coordinates"] = metadata["z_coordinates"][start:stop]
-    if stop:
-        metadata["z_levels"] = range(start, stop)
+    image_stack = image_stack[zstart:zstop, ystart:ystop, xstart:xstop]
+    if xstop:
+        metadata["width"] = xstop - xstart
     else:
-        metadata["z_levels"] = range(start, metadata["z_levels"].stop)
+        metadata["width"] = image_stack.shape[3] - xstart
+
+    if ystop:
+        metadata["height"] = ystop - ystart
+    else:
+        metadata["height"] = image_stack.shape[2] - ystart
+
+    metadata["z_coordinates"] = metadata["z_coordinates"][zstart:zstop]
+    if zstop:
+        metadata["z_levels"] = range(zstart, zstop)
+    else:
+        metadata["z_levels"] = range(zstart, metadata["z_levels"].stop)
 
     return image_stack, metadata
 
 
 def initialize_toml(filename: Path | str, metadata: dict):
     toml_dict = {
-        "stack_start": metadata["z_levels"].start,
-        "stack_stop": metadata["z_levels"].stop,
+        "zstart": metadata["z_levels"].start,
+        "zstop": metadata["z_levels"].stop,
         "particle_size_microns": 1,  # defaults to 1 µm
         "selections": [],
     }

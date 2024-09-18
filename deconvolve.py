@@ -24,8 +24,8 @@ def deconvolve(
 
     stack, _ = load_image_stack(
         path=str(datapath),
-        start=config["stack_start"],
-        stop=config["stack_stop"],
+        zstart=config["stack_start"],
+        zstop=config["stack_stop"],
     )
 
     deconv_stack = restoration.richardson_lucy(

@@ -223,10 +223,10 @@ class MultiSliceViewer:
 
         xmin, xmax, ymin, ymax = self._select_rectangle()
         selection_coords = {
-            "xmin": int(xmin),
-            "xmax": int(xmax),
-            "ymin": int(ymin),
-            "ymax": int(ymax),
+            "xstart": int(xmin),
+            "xstop": int(xmax),
+            "ystart": int(ymin),
+            "ystop": int(ymax),
         }
 
         *_, configpath = self._check_datafile_config()
