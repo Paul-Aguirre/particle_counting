@@ -123,7 +123,7 @@ def process_reference_sample(
     # * Dumping reference sample results in a file.
     # todo: add units and validation values from plots (medians)
     ref_results = {
-        "zstep": np.mean(np.diff(np.array(metadata["z_coordinates"]))),
+        "zstep": np.median(np.diff(np.array(metadata["z_coordinates"]))),
         "total_volume": total_volume,
         "num_particles_counted": num_particles,
         "num_particle_concentration": particle_concentration,
