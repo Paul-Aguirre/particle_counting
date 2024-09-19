@@ -2,7 +2,7 @@ import tomllib
 from pathlib import Path
 from tkinter.filedialog import askopenfilename
 
-from files_inputs import load_image_stack
+from files_io import check_config, load_image_stack
 from process_stack import process_stack
 
 

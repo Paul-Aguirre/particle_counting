@@ -25,12 +25,12 @@ def load_image_stack(
     if xstop:
         metadata["width"] = xstop - xstart
     else:
-        metadata["width"] = image_stack.shape[3] - xstart
+        metadata["width"] = image_stack.shape[2] - xstart
 
     if ystop:
         metadata["height"] = ystop - ystart
     else:
-        metadata["height"] = image_stack.shape[2] - ystart
+        metadata["height"] = image_stack.shape[1] - ystart
 
     metadata["z_coordinates"] = metadata["z_coordinates"][zstart:zstop]
     if zstop:
@@ -46,6 +46,8 @@ def initialize_toml(filename: Path | str, metadata: dict):
         "zstart": metadata["z_levels"].start,
         "zstop": metadata["z_levels"].stop,
         "particle_size_microns": 1,  # defaults to 1 µm
+        "particle_concentration": 1e-4,  # in particles/µm^3
+        "pectin_concentration": 40,  # in g/L
         "selections": [],
     }
     with open(filename, mode="w") as f:

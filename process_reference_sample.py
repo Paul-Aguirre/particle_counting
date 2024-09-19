@@ -9,7 +9,7 @@ import toml
 from process_stack import process_stack
 from multi_slice_viewer import MultiSliceViewer, make_colored_overlay, RGBColorIndex
 from particle_distributions import particle_distributions
-from files_inputs import load_image_stack, check_config
+from files_io import load_image_stack, check_config
 
 
 def process_reference_sample(
