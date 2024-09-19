@@ -19,6 +19,8 @@ def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
     results: dict = {},
+    binary: bool = False,
+    threshold: int | None = None,
     morph_open: bool = True,
     particle_diameter_um: float | None = None,  # in microns
     full_bboxes: bool = True,
@@ -29,8 +31,17 @@ def process_stack(
 ) -> dict:
 
     # * Isolating the particles by thresholding
-    thresh, processed_stack = threshold_stack(image_stack=image_stack)
-    results.update(ostu_threshold=thresh, binary=processed_stack)
+    if not binary:
+        if threshold:
+            thresh, processed_stack = threshold_stack(
+                image_stack=image_stack,
+                thresh=threshold,
+            )
+        else:
+            thresh, processed_stack = threshold_stack(image_stack)
+        results.update(ostu_threshold=thresh, binary=processed_stack)
+    else:
+        processed_stack = image_stack
 
     if morph_open:
         processed_stack = morphological_opening(

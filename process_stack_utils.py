@@ -4,8 +4,13 @@ from skimage import filters, measure, morphology, draw
 from plane import Plane, Region
 
 
-def threshold_stack(image_stack: np.ndarray) -> tuple[int, np.ndarray]:
-    thresh = filters.threshold_otsu(image_stack)
+def threshold_stack(
+    image_stack: np.ndarray,
+    thresh: int | None = None,
+) -> tuple[int, np.ndarray]:
+
+    if not thresh:
+        thresh = filters.threshold_otsu(image_stack)
     processed_stack = image_stack > thresh
     return thresh, processed_stack
 
