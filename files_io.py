@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Sequence
 from tkinter.filedialog import askopenfilenames
+from typing import NamedTuple
 
 import numpy as np
 from nd2reader import ND2Reader
@@ -41,7 +42,7 @@ def load_image_stack(
     return image_stack, metadata
 
 
-def initialize_toml(filename: Path | str, metadata: dict):
+def initialize_config(filename: Path | str, metadata: dict):
     toml_dict = {
         "zstart": metadata["z_levels"].start,
         "zstop": metadata["z_levels"].stop,
@@ -68,7 +69,7 @@ def check_config(
 
     if not configpath.exists():
         _, metadata = load_image_stack(str(datapath))
-        initialize_toml(configpath, metadata)
+        initialize_config(configpath, metadata)
         print(f"Created {configpath.name}.")
         if make_pause:
             print("Please edit the configuration file.")
@@ -83,6 +84,27 @@ def prepare_datafile(file: str | Path | Sequence[str | Path]):
     else:
         for elt in file:
             check_config(elt)
+
+
+class Result(NamedTuple):
+    value: float
+    unit: str
+
+
+def save_results(
+    results: list,
+    datapath: str | Path,
+    suffix: str,
+):
+    datapath, dirpath, _ = check_config(datapath)
+    save_path = dirpath / f"{datapath.stem}_{suffix}.toml"
+    # copying results
+    results_values = [{k: v for k, v in d.copy().items()} for d in results.copy()]
+    for results in results_values:
+        for key, result in results.items():
+            result[key] = float(result.value)
+    with open(save_path, "w") as f:
+        toml.dump(results_values, f)
 
 
 if __name__ == "__main__":
