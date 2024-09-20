@@ -92,20 +92,30 @@ class Result(NamedTuple):
 
 
 def save_results(
-    results_dict: list[dict],
+    results_lst: list[dict],
     datapath: str | Path,
     suffix: str,
 ) -> Path:
     datapath, dirpath, _ = check_config(datapath)
     save_path = dirpath / f"{datapath.stem}_{suffix}.toml"
     # copying results
-    results_lst = [{k: v for k, v in d.copy().items()} for d in results_dict.copy()]
-    for results_dict in results_lst:
-        for key, result in results_dict.items():
-            results_dict[key] = float(result.value)
+    # results_lst_copy = [{k: v for k, v in d.copy().items()} for d in results_lst.copy()]
+    # for results_lst in results_lst_copy:
+    #     for key, result in results_lst.items():
+    #         results_lst[key] = Result(float(result.value), result.unit)
     with open(save_path, "w") as f:
+        # toml.dump({"results_lst": results_lst_copy}, f)
         toml.dump({"results_lst": results_lst}, f)
     return save_path
+
+
+def load_results(path: str | Path):
+    with open(path, "r") as f:
+        results_lst = toml.load(f)["results_lst"]
+    for results_dict in results_lst:
+        for key, result in results_dict.items():
+            results_dict[key] = Result(eval(result[0]), result[1])
+    return results_lst
 
 
 if __name__ == "__main__":

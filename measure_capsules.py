@@ -68,12 +68,12 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
         )
 
         capsule_results = {
-            "capsule_diameter": Result(capsule_diameter, "µm"),
-            "capsule_volume": Result(capsule_volume, "µm^3"),
+            "capsule_diameter": Result(capsule_diameter, "um"),
+            "capsule_volume": Result(capsule_volume, "um^3"),
             "median_num_pixels": Result(median_num_pixels, "pixels"),
             "num_particles_in_volume": Result(num_particles_in_volume, "particles"),
             "particle_concentration_in_volume": Result(
-                particle_concentration_in_volume, "particles/µm^3"
+                particle_concentration_in_volume, "particles/um^3"
             ),
             "pectin_experimental_concentration": Result(
                 pectin_experimental_concentration, "g/L"
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     capsules_results = measure_capsules(datapath)
     print_capsule_results(capsules_results)
     save_results_path = save_results(
-        results_dict=capsules_results,
+        results_lst=capsules_results,
         datapath=datapath,
         suffix="capsule_results",
     )

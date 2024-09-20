@@ -63,16 +63,16 @@ def process_reference_sample(
         plt.show()
 
     # * Computing particle concentration in number
-    total_volume = (
+    total_volume = np.float64(
         abs(metadata["z_coordinates"][-1] - metadata["z_coordinates"][0])
         * metadata["width"]
         * metadata["height"]
         * metadata["pixel_microns"] ** 2
     )
 
-    num_particles = len(results["props"])
+    num_particles = np.float64(len(results["props"]))
 
-    particle_concentration = num_particles / total_volume
+    particle_concentration = np.float64(num_particles / total_volume)
 
 
     # * Plotting particle size distribution
@@ -115,13 +115,13 @@ def process_reference_sample(
     ref_results = {
         "zstep": Result(
             value=np.median(np.diff(np.array(metadata["z_coordinates"]))),
-            unit="µm",
+            unit="um",
         ),
-        "total_volume": Result(total_volume, "µm^3"),
+        "total_volume": Result(total_volume, "um^3"),
         "num_particles_counted": Result(num_particles, "particles"),
         "num_particle_concentration": Result(
             value=particle_concentration,
-            unit="particles/µm^3",
+            unit="particles/um^3",
         ),
         "vol_particles_counted": Result(
             value=num_particles_in_volume,
@@ -129,7 +129,7 @@ def process_reference_sample(
         ),
         "vol_particle_concentration": Result(
             value=particle_concentration_in_volume,
-            unit="particles/µm^3",
+            unit="particles/um^3",
         ),
         "median_num_pixels": Result(median_num_pixels, "pixels"),  # ?
     }
