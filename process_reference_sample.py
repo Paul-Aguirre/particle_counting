@@ -12,7 +12,7 @@ from multi_slice_viewer import (
     make_colored_overlay,
     RGBColorIndex,
 )
-from particle_distributions import particle_distributions
+from statistics_plots import particle_distributions
 from files_io import (
     load_image_stack,
     check_config,

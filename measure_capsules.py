@@ -51,6 +51,13 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
             binary=True,
             morph_open=False,
         )
+        """ # ? Should we only count the volume of tracers inside
+        the hull (current implementation)?
+        Or instead count the volume of tracers which have their centroid
+        in the hull ?
+        Current implementation cuts some capsule volume on hull border
+        thus reducing particle count.
+        """
 
         median_num_pixels = np.median(
             np.array(

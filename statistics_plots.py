@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
 
+from files_io import Result
+
 
 class HistogramData(NamedTuple):
     data: np.ndarray
@@ -250,3 +252,28 @@ def print_histogram(histogram: HistogramData) -> None:
             axis=1,
         )
     )
+
+
+def capsules_statistics(
+    results: list[dict[Result]],
+):
+    # * capsule diameter distribution plot
+    fig, axs = plt.subplots(1, 2)
+    fig.set_layout_engine(layout="tight")
+    capsules_diameters = []
+    for result_dict in results:
+        capsules_diameters.append(result_dict["capsule_diameter"].value)
+    capsules_diameters = np.array(capsules_diameters)
+    cum_diam, bins_diam, secax_diam = hist_freq_cum(
+        ax=axs[0],
+        data=capsules_diameters,
+        bins=20,
+        title="Capsule diameter distribution",
+    )
+    axs[0].set_xlabel("Capsule diameter (µm)")
+    axs[0].set_ylabel("Count")
+    secax_diam.set_ylabel("Cumulated frequency")
+
+    # * scatter plot C/C_0 against capsule diameter
+
+    plt.show()
