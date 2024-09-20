@@ -7,9 +7,18 @@ from matplotlib import pyplot as plt
 import toml
 
 from process_stack import process_stack
-from multi_slice_viewer import MultiSliceViewer, make_colored_overlay, RGBColorIndex
+from multi_slice_viewer import (
+    MultiSliceViewer,
+    make_colored_overlay,
+    RGBColorIndex,
+)
 from particle_distributions import particle_distributions
-from files_io import load_image_stack, check_config
+from files_io import (
+    load_image_stack,
+    check_config,
+    Result,
+    save_results,
+)
 
 
 def process_reference_sample(
@@ -65,13 +74,6 @@ def process_reference_sample(
 
     particle_concentration = num_particles / total_volume
 
-    print("\n")
-    print(f"File: {datapath.name}")
-    print(f"Total volume analysed: {total_volume:.4e} µm^3")
-    print("\n")
-    print("{:-^72}".format("Particle number calculations in number"))
-    print(f"Number of particles detected: {num_particles:.4e}")
-    print(f"Particle concentration: {particle_concentration:.4e} particles/µm^3")
 
     # * Plotting particle size distribution
     histograms, plots = particle_distributions(
@@ -106,42 +108,77 @@ def process_reference_sample(
     num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
     particle_concentration_in_volume = num_particles_in_volume / total_volume
 
-    print("\n")
-    print("{:-^72}".format("Particle number calculations in volume"))
-    # print("Without z-axis correction:")
-    print(
-        f"Number of particles: {num_particles_in_volume:.4e}",
-    )
-    print(
-        "Particle concentration: "
-        f"{particle_concentration_in_volume:.4e} particles/µm^3"
-    )
-
     if view_distributions:
         plt.show()
 
-    # * Dumping reference sample results in a file.
     # todo: add units and validation values from plots (medians)
     ref_results = {
-        "zstep": np.median(np.diff(np.array(metadata["z_coordinates"]))),
-        "total_volume": total_volume,
-        "num_particles_counted": num_particles,
-        "num_particle_concentration": particle_concentration,
-        "vol_particles_counted": num_particles_in_volume,
-        "vol_particle_concentration": particle_concentration_in_volume,
-        "median_num_pixels": median_num_pixels,  # ?
+        "zstep": Result(
+            value=np.median(np.diff(np.array(metadata["z_coordinates"]))),
+            unit="µm",
+        ),
+        "total_volume": Result(total_volume, "µm^3"),
+        "num_particles_counted": Result(num_particles, "particles"),
+        "num_particle_concentration": Result(
+            value=particle_concentration,
+            unit="particles/µm^3",
+        ),
+        "vol_particles_counted": Result(
+            value=num_particles_in_volume,
+            unit="particles",
+        ),
+        "vol_particle_concentration": Result(
+            value=particle_concentration_in_volume,
+            unit="particles/µm^3",
+        ),
+        "median_num_pixels": Result(median_num_pixels, "pixels"),  # ?
     }
-    ref_results_file = dirpath / f"{datapath.stem}_reference_results.toml"
 
-    with open(ref_results_file, "w") as f:
-        toml.dump(ref_results, f)
+    return image_stack, metadata, results, ref_results, histograms, plots
 
-    return image_stack, metadata, results, histograms, plots
+
+def print_reference_results(datapath:Path, results: dict):
+    print(f"File: {datapath.name}")
+    print(
+        "Total volume analysed: "
+        f"{results["total_volume"].value:.4e} "
+        f"{results["total_volume"].unit}\n"
+    )
+    print("{:-^72}".format("Particle number calculations in number"))
+    print(
+        "Number of particles detected: "
+        f"{results["num_particles_counted"].value:.4e} "
+        f"{results["num_particles_counted"].unit}"
+    )
+    print(
+        "Particle concentration: "
+        f"{results["num_particle_concentration"].value:.4e} "
+        f"{results["num_particle_concentration"].unit}\n"
+    )
+    
+    print("{:-^72}".format("Particle number calculations in volume"))
+    print(
+        "Number of particles: "
+        f"{results["vol_particles_counted"].value:.4e} "
+        f"{results["vol_particles_counted"].unit}"
+    )
+    print(
+        "Particle concentration: "
+        f"{results["vol_particle_concentration"].value:.4e} "
+        f"{results["vol_particle_concentration"].unit}\n"
+    )
 
 
 if __name__ == "__main__":
     datapath = Path(askopenfilename(title="Choose a data file"))
     # fmt: off
-    image_stack, metadata, results, histograms, plots =\
+    image_stack, metadata, results, ref_results, histograms, plots =\
         process_reference_sample(datapath)
     # fmt: on
+    print_reference_results(datapath, ref_results)
+    save_results_path = save_results(
+        [ref_results],
+        datapath=datapath,
+        suffix="reference_results",
+    )
+    print(f'Reference results saved at "{save_results_path}".')

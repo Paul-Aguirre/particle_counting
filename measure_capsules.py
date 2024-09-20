@@ -100,8 +100,9 @@ if __name__ == "__main__":
     datapath = Path(askopenfilename())
     capsules_results = measure_capsules(datapath)
     print_capsule_results(capsules_results)
-    save_results(
-        results=capsules_results,
+    save_results_path = save_results(
+        results_dict=capsules_results,
         datapath=datapath,
         suffix="capsule_results",
     )
+    print(f'Capsule measurements results saved at \n"{save_results_path}".')
