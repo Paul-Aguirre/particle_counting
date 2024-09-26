@@ -1,5 +1,6 @@
 /__pycache__
 /data/*
+*test*.py
 *.nd2
 *.toml
 *.npy
@@ -7,3 +8,5 @@
 *.pptx
 .venv
 .vscode
+comptage particle_v3.py
+particle_counting.ipynb
