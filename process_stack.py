@@ -3,7 +3,6 @@
 import numpy as np
 
 from plane import Plane
-
 from process_stack_utils import (
     threshold_stack,
     morphological_opening,
@@ -39,7 +38,7 @@ def process_stack(
             )
         else:
             thresh, processed_stack = threshold_stack(image_stack)
-        results.update(ostu_threshold=thresh, binary=processed_stack)
+        results.update(threshold=thresh, binary=processed_stack)
     else:
         processed_stack = image_stack
 

@@ -17,7 +17,7 @@ from files_io import (
     load_image_stack,
     check_config,
     Result,
-    save_results,
+    save_records,
 )
 
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         process_reference_sample(datapath)
     # fmt: on
     print_reference_results(datapath, ref_results)
-    save_results_path = save_results(
+    save_results_path = save_records(
         [ref_results],
         datapath=datapath,
         suffix="reference_results",

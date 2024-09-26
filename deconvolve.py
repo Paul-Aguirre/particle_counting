@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from skimage import restoration
 
-from files_inputs import load_image_stack, check_config
+from files_io import load_image_stack, check_config
 from multi_slice_viewer import MultiSliceViewer
 
 

@@ -13,7 +13,7 @@ from scipy.stats import zscore
 from scipy.ndimage import center_of_mass
 from skimage import io, feature, filters, restoration, measure
 
-from files_inputs import load_image_stack
+from files_io import load_image_stack
 from plane import Plane
 
 """
