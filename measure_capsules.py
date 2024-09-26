@@ -9,6 +9,7 @@ from scipy.stats import gaussian_kde
 
 from files_io import (
     Result,
+    ResultRecord,
     check_config,
     df_to_csv,
     get_save_path,
@@ -19,7 +20,7 @@ from process_stack import process_stack
 from statistics_plots import capsule_distrib_kde, capsule_scatter
 
 
-def measure_capsules(datapath: str | Path) -> list[dict]:
+def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
     # * getting back the selections from the config file
     datapath, dirpath, configpath = check_config(datapath)
     with open(configpath, "rb") as f:
@@ -27,7 +28,7 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
 
     # * loading the substack from the main large image
     capsules_records = []
-    for substack, metadata in get_selection_stack(config=config, path=datapath):
+    for substack, metadata in get_selection_stack(config=config, datapath=datapath):
         # * applying process stack to each substack
         results = process_stack(
             image_stack=substack,
@@ -104,8 +105,8 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
     return capsules_records, df_capsules_records
 
 
-def print_capsule_records(results: list):
-    for i, measurment in enumerate(results, start=1):
+def print_capsule_records(records_lst: list[ResultRecord]):
+    for i, measurment in enumerate(records_lst, start=1):
         print("")
         title_str = f"Measurments for capsule n°{i}"
         print("{:-^72}".format(title_str))
