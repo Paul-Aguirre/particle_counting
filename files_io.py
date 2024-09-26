@@ -5,6 +5,7 @@ from typing import NamedTuple
 
 import numpy as np
 from nd2reader import ND2Reader
+import pandas as pd
 import toml
 
 
@@ -40,6 +41,20 @@ def load_image_stack(
         metadata["z_levels"] = range(zstart, metadata["z_levels"].stop)
 
     return image_stack, metadata
+
+
+def get_selection_stack(config: dict, path: str | Path):
+    for selection in config["selections"]:
+        image_stack, metadata = load_image_stack(
+            path=path,
+            xstart=selection["xstart"],
+            xstop=selection["xstop"],
+            ystart=selection["ystart"],
+            ystop=selection["ystop"],
+            zstart=config["zstart"],
+            zstop=config["zstop"],
+        )
+        yield image_stack, metadata
 
 
 def initialize_config(filename: Path | str, metadata: dict):
@@ -80,10 +95,10 @@ def check_config(
 
 def prepare_datafile(file: str | Path | Sequence[str | Path]):
     if type(file) is str or type(file) is Path:
-        check_config(file)
+        check_config(file, make_pause=True)
     else:
         for elt in file:
-            check_config(elt)
+            check_config(elt, make_pause=True)
 
 
 class Result(NamedTuple):
@@ -91,13 +106,18 @@ class Result(NamedTuple):
     unit: str
 
 
-def save_results(
-    results_lst: list[dict],
+def get_save_path(datapath: str | Path, suffix: str, ext: str):
+    datapath, dirpath, _ = check_config(datapath)
+    save_path = dirpath / f"{datapath.stem}_{suffix}.{ext}"
+    return save_path
+
+
+def save_records(
+    records_lst: list[dict],
     datapath: str | Path,
     suffix: str,
 ) -> Path:
-    datapath, dirpath, _ = check_config(datapath)
-    save_path = dirpath / f"{datapath.stem}_{suffix}.toml"
+    save_path = get_save_path(datapath, suffix, "toml")
     # copying results
     # results_lst_copy = [{k: v for k, v in d.copy().items()} for d in results_lst.copy()]
     # for results_lst in results_lst_copy:
@@ -105,17 +125,27 @@ def save_results(
     #         results_lst[key] = Result(float(result.value), result.unit)
     with open(save_path, "w") as f:
         # toml.dump({"results_lst": results_lst_copy}, f)
-        toml.dump({"results_lst": results_lst}, f)
+        toml.dump({"records_lst": records_lst}, f)
     return save_path
 
 
-def load_results(path: str | Path):
+def load_records(path: str | Path):
     with open(path, "r") as f:
-        results_lst = toml.load(f)["results_lst"]
+        results_lst = toml.load(f)["records_lst"]
     for results_dict in results_lst:
         for key, result in results_dict.items():
             results_dict[key] = Result(eval(result[0]), result[1])
     return results_lst
+
+
+def df_to_csv(
+    df_records: pd.DataFrame,
+    datapath: str | Path,
+    suffix: str,
+):
+    save_path = get_save_path(datapath, suffix, "csv")
+    df_records.to_csv(save_path)
+    return save_path
 
 
 if __name__ == "__main__":

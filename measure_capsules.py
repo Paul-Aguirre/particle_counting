@@ -2,33 +2,31 @@ import tomllib
 from pathlib import Path
 from tkinter.filedialog import askopenfilename
 
+from matplotlib import pyplot as plt
 import numpy as np
+import pandas as pd
+from scipy.stats import gaussian_kde
 
-from files_io import Result, check_config, load_image_stack, save_results
+from files_io import (
+    Result,
+    check_config,
+    df_to_csv,
+    get_save_path,
+    get_selection_stack,
+    save_records,
+)
 from process_stack import process_stack
+from statistics_plots import capsule_distrib_kde, capsule_scatter
 
 
 def measure_capsules(datapath: str | Path) -> list[dict]:
     # * getting back the selections from the config file
-    datapath, _, configpath = check_config(datapath)
+    datapath, dirpath, configpath = check_config(datapath)
     with open(configpath, "rb") as f:
         config = tomllib.load(f)
 
     # * loading the substack from the main large image
-    def get_selection_stack(config: dict, path: str | Path):
-        for selection in config["selections"]:
-            image_stack, metadata = load_image_stack(
-                path=path,
-                xstart=selection["xstart"],
-                xstop=selection["xstop"],
-                ystart=selection["ystart"],
-                ystop=selection["ystop"],
-                zstart=config["zstart"],
-                zstop=config["zstop"],
-            )
-            yield image_stack, metadata
-
-    capsules_results = []
+    capsules_records = []
     for substack, metadata in get_selection_stack(config=config, path=datapath):
         # * applying process stack to each substack
         results = process_stack(
@@ -42,7 +40,9 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
         # * extract capsule size parameters
         assert len(results["hull_props"]) == 1
         capsule_volume = results["hull_props"][0].area  # in µm^3
+        # (area for 3D object is volume, checked in scikit image source code)
         capsule_diameter = results["hull_props"][0].equivalent_diameter_area
+        # (also checked in skimage source code that formula applies to 3D case)
         # * and compute pectin concentration in capsule volume
         particles_in_hull = results["hull"] == results["binary"]
         particles_in_hull_results = process_stack(
@@ -74,7 +74,7 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
             / config["particle_concentration"]
         )
 
-        capsule_results = {
+        capsule_record = {
             "capsule_diameter": Result(capsule_diameter, "um"),
             "capsule_volume": Result(capsule_volume, "um^3"),
             "median_num_pixels": Result(median_num_pixels, "pixels"),
@@ -86,13 +86,27 @@ def measure_capsules(datapath: str | Path) -> list[dict]:
                 pectin_experimental_concentration, "g/L"
             ),
         }
-        capsules_results.append(capsule_results)
+        capsules_records.append(capsule_record)
 
-    return capsules_results
+    # fmt: off
+    capsules_records_values = [
+        {k: v.value for k, v in record.items()}
+        for record in capsules_records
+    ]
+    # fmt: on
+    df_capsules_records = pd.DataFrame.from_records(capsules_records_values)
+
+    df_capsules_records["c_0"] = config["pectin_concentration"]
+    df_capsules_records["pectin_exp_concs_norm"] = (
+        df_capsules_records.particle_concentration_in_volume / df_capsules_records.c_0
+    )
+
+    return capsules_records, df_capsules_records
 
 
-def print_capsule_results(results: list):
+def print_capsule_records(results: list):
     for i, measurment in enumerate(results, start=1):
+        print("")
         title_str = f"Measurments for capsule n°{i}"
         print("{:-^72}".format(title_str))
         for key, value in measurment.items():
@@ -103,13 +117,45 @@ def print_capsule_results(results: list):
     # * plot pectin concentration in capsule against capsule radius
 
 
-if __name__ == "__main__":
-    datapath = Path(askopenfilename())
-    capsules_results = measure_capsules(datapath)
-    print_capsule_results(capsules_results)
-    save_results_path = save_results(
-        results_lst=capsules_results,
+def plot_save_capsule_stats() -> None:
+    datapath, dirpath, configpath = check_config(askopenfilename())
+    capsules_records, df_capsules_records = measure_capsules(datapath)
+    print_capsule_records(capsules_records)
+    save_records_path = save_records(
+        records_lst=capsules_records,
         datapath=datapath,
-        suffix="capsule_results",
+        suffix="capsule_records",
     )
-    print(f'Capsule measurements results saved at \n"{save_results_path}".')
+    save_records_path_csv = df_to_csv(
+        df_records=df_capsules_records,
+        datapath=datapath,
+        suffix="capsule_records",
+    )
+    print(
+        f'\nCapsule measurements results saved at \n"{save_records_path}"'
+        f'\n and at "\n{save_records_path_csv}".'
+    )
+
+    hist, kde = capsule_distrib_kde(df_records=df_capsules_records)
+
+    # kde value computation for each datapoint has to be done
+    # on a complete dataset, meaning that:
+    # if a sample is split in several data files, the measurements
+    # have to be regrouped in a single DataFrame before computing
+    # kde values.
+    df_capsules_records["caps_diams_kde"] = gaussian_kde(
+        df_capsules_records.capsule_diameter
+    ).evaluate(df_capsules_records.capsule_diameter)
+
+    scatterplot = capsule_scatter(df_records=df_capsules_records)
+
+    hist.savefig(fname=get_save_path(datapath, "hist_kde", "png"))
+    kde.savefig(fname=get_save_path(datapath, "kde", "png"))
+    scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
+
+    plt.show()
+    return capsules_records, df_capsules_records
+
+
+if __name__ == "__main__":
+    capsules_records, df_capsules_records = plot_save_capsule_stats()

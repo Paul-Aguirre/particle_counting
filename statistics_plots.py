@@ -1,23 +1,34 @@
 from typing import Sequence, NamedTuple
 
+import pandas as pd
 import matplotlib.axes
 import matplotlib.figure
 import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
+import seaborn as sns
+import seaborn.objects as so
+from scipy.stats import gaussian_kde
 
 from files_io import Result
 
 
 class HistogramData(NamedTuple):
+    """Contains the data of a histogram."""
+
     data: np.ndarray
     cumdata: np.ndarray
     bins: np.ndarray
 
 
 class DistributionPlot(NamedTuple):
+    """Contains the figure and the axes objects from a matplotlib plot.
+    Used specifically for the particle distribution plots made in
+    functions below.
+    """
+
     fig: matplotlib.figure.Figure
-    ax: matplotlib.axes.Axes
+    ax: matplotlib.axes.Axes | list[matplotlib.axes.Axes]
 
 
 def hist_freq_cum(
@@ -31,18 +42,18 @@ def hist_freq_cum(
 
     Args:
         ax (matplotlib.axes.Axes): The axes onto which the histogram is
-        plotted.
+            plotted.
         data (list | numpy.ndarray): Data used for tracing the histogram.
-        bins (int | Sequence | str | numpy.ndarray, optional): Histogram bins. Passed
-        down to ax.hist() method. Defaults to 10.
+        bins (int | Sequence | str | numpy.ndarray, optional): Histogram bins.
+            Passed down to ax.hist() method. Defaults to 10.
         title (str | None, optional): Sets the title of the ax.
-        Defaults to None.
+            Defaults to None.
 
     Returns:
         tuple: A tuple containing:
-            - the cumulated values of the histogram, not normalised.
-            - the bins edges
-            - the secondary y axis
+        - the cumulated values of the histogram, not normalised.
+        - the bins edges
+        - the secondary y axis
     """
     _, bins, _ = ax.hist(
         data,
@@ -93,19 +104,19 @@ def particle_distributions(
     Args:
         results (dict): the results dictionnary returned by process_stack()
         metadata (dict): the metadata dictionnary returned by
-        load_image_stack().
+            load_image_stack().
         bins_xy (int | Sequence | str, optional): bins for x and y
-        histograms. Defaults to 10.
+            histograms. Defaults to 10.
         bins_z (int | Sequence | str, optional): bins for z histogram.
-        Defaults to 10.
+            Defaults to 10.
         bins_pixels (int | Sequence | str, optional): bins for
-        num_pixels histogram. Defaults to 10.
+            num_pixels histogram. Defaults to 10.
         bins_area (int | Sequence | str, optional): bins for area
-        histogram. Defaults to 10.
+            histogram. Defaults to 10.
         bins_diameter (int | Sequence | str, optional): bins for
-        diameter histogram. Defaults to 10.
+            diameter histogram. Defaults to 10.
         verbose (bool, optionnal): If True, prints the values of the
-        cumulative frequency plot. Defaults to False.
+            cumulative frequency plot. Defaults to False.
     """
 
     # Saved for later use:
@@ -241,6 +252,12 @@ def particle_distributions(
 
 
 def print_histogram(histogram: HistogramData) -> None:
+    """Prints the data from a histogram in three columns: the bins,
+    the cumulated heights of the bars, the heights of the bars.
+
+    Args:
+        histogram (HistogramData): The data to be printed.
+    """
     print("bins, cumulative frequency, frequency")
     print(
         np.concatenate(
@@ -254,26 +271,81 @@ def print_histogram(histogram: HistogramData) -> None:
     )
 
 
-def capsules_statistics(
-    results: list[dict[Result]],
-):
-    # * capsule diameter distribution plot
-    fig, axs = plt.subplots(1, 2)
-    fig.set_layout_engine(layout="tight")
+def capsule_distib_ecdf(
+    records: list[dict[Result]],
+) -> None:
+    """Plots the distribution histogram and ecdf for capsule diameter
+    from a list of capsule records. Usage discouraged,
+    capsule_distrib_kde() is prefered.
+
+    Args:
+        records (list[dict[Result]]): List of records containing
+            the diameters data.
+    """
     capsules_diameters = []
-    for result_dict in results:
-        capsules_diameters.append(result_dict["capsule_diameter"].value)
+    for record_dict in records:
+        capsules_diameters.append(record_dict["capsule_diameter"].value)
+
+    # * capsule diameter distribution plot with cummulative curve
+    fig, ax = plt.subplots()
+    fig.set_layout_engine(layout="tight")
     capsules_diameters = np.array(capsules_diameters)
     cum_diam, bins_diam, secax_diam = hist_freq_cum(
-        ax=axs[0],
+        ax=ax,
         data=capsules_diameters,
         bins=20,
         title="Capsule diameter distribution",
     )
-    axs[0].set_xlabel("Capsule diameter (µm)")
-    axs[0].set_ylabel("Count")
+    ax.set_xlabel("Capsule diameter (µm)")
+    ax.set_ylabel("Count")
     secax_diam.set_ylabel("Cumulated frequency")
+    # plt.show()
 
-    # * scatter plot C/C_0 against capsule diameter
 
-    plt.show()
+def capsule_distrib_kde(
+    df_records: pd.DataFrame,
+) -> tuple[sns.FacetGrid, sns.FacetGrid]:
+    """Convinience function which plots capsule diameter distribution
+    as a histogram with the kde and as the kde alone.
+
+    Args:
+        df_records (pd.DataFrame): DataFrame containing the diameters data.
+            Has to have column named "capsule_diameter".
+
+    Returns:
+        tuple[seaborn.FacetGrid, seaborn.FacetGrid]: the histogram and
+            the kde plots as retruned by the seaborn.displot() function.
+    """
+    hist = sns.displot(data=df_records, x="capsule_diameter", kind="hist", kde=True)
+    kde = sns.displot(data=df_records, x="capsule_diameter", kind="kde")
+    # plt.show()
+    return hist, kde
+
+
+def capsule_scatter(
+    df_records: pd.DataFrame,
+    # c_0: float | list[float] | np.ndarray,
+) -> sns.FacetGrid:
+    """Convinience function which plots normalised pectin concentration
+    against capsule diameter in a scatter plot. Dot color represents
+    the kde value at the diameter of that data point.
+
+    Args:
+        df_records (pd.DataFrame): DataFrame containing necessary data.
+            It should have a columns named "capsule_diamter",
+            "pectin_exp_concs_norm" and "caps_diams_kde".
+
+    Returns:
+        sns.FacetGrid: The scatter plot as retuned by the seaborn.relplot()
+            function.
+    """
+
+    scatterplot = sns.relplot(
+        data=df_records,
+        x="capsule_diameter",
+        y="pectin_exp_concs_norm",
+        hue="caps_diams_kde",
+    )
+    # sns.move_legend(scatterplot, "upper right")
+    # plt.show()
+    return scatterplot
