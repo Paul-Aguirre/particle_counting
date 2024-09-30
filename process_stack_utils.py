@@ -1,3 +1,7 @@
+"""This module contains all the functions used in the process_stack()
+function from the process_stack.py module.
+"""
+
 import numpy as np
 from skimage import filters, measure, morphology, draw
 
@@ -8,7 +12,19 @@ def threshold_stack(
     image_stack: np.ndarray,
     thresh: int | None = None,
 ) -> tuple[int, np.ndarray]:
+    """Returns an image stack thresholded either by the provided thresh
+    value or by the one determined with Otsu's method.
 
+    Args:
+        image_stack (np.ndarray): A grayscale image stack.
+        thresh (int | None, optional): A threshold value. If left
+            to None, the threshold is determined by otsu's method.
+            Defaults to None.
+
+    Returns:
+        tuple[int, np.ndarray]: The threshold value and the binary image
+            stack resulting from the thresholding.
+    """
     if not thresh:
         thresh = filters.threshold_otsu(image_stack)
     processed_stack = image_stack > thresh
@@ -20,9 +36,26 @@ def morphological_opening(
     metadata: dict,
     particle_diameter_um: float,
 ) -> np.ndarray:
+    """Performs a morphological opening on a binary image stack using
+    a ball structuring element with same radius as the tracers used in
+    the sample or of at least one pixel (does not change the image).
+
+    Args:
+        processed_stack (np.ndarray): A binary image stack to with
+        overlapping regions.
+        metadata (dict): The metadata associated with the image stack.
+        particle_diameter_um (float): The diameter of the tracer in
+        the sample.
+
+    Returns:
+        np.ndarray: The image stack after the morphological opening.
+    """
     structuring_element = morphology.ball(  # radius in pixels:
         max(1, particle_diameter_um / metadata["pixel_microns"] / 2)
     )
+    # The max() function here ensure that the structuring element is
+    # at least 1 pixel otherwise the result of the opening is
+    # a black image.
 
     processed_stack = morphology.binary_opening(
         image=processed_stack,
@@ -31,7 +64,23 @@ def morphological_opening(
     return processed_stack
 
 
-def measure_particles(processed_stack: np.ndarray, metadata: dict) -> None:
+def measure_particles(
+    processed_stack: np.ndarray,
+    metadata: dict,
+) -> tuple:
+    """Labels regions and measures region properties on an binary image
+    stack.
+
+    Args:
+        processed_stack (np.ndarray): A binary image stack to with
+            regions to measure.
+        metadata (dict): The metadata associated to the image stack.
+
+    Returns:
+        tuple: The labeled image stack, a list of region properties,
+            a list of region properties scaled with pixel size data
+            present in the provided metadata.
+    """
     labels = measure.label(processed_stack)
 
     props = measure.regionprops(labels)
@@ -50,7 +99,23 @@ def create_bboxes_stack(
     stack_shape: tuple[int, int, int],
     props: list[Region],
     full_bboxes: bool = False,
-) -> None:
+) -> np.ndarray:
+    """Returns a binary image stack of the given shape containing
+    the bboxes of the elements in props.
+
+    Args:
+        stack_shape (tuple[int, int, int]): The shape of the output
+            image stack.
+        props (list[Region]): List of region properties which's bboxes
+            will be added to the output stack.
+        full_bboxes (bool, optional): If True, the bboxes will be drawn
+            as full squares if plotted in 2D. If False, the bboxes will
+            be drawn as empty square perimeters. Defaults to False.
+
+    Returns:
+        np.ndarray: An image stack containing the bboxes in
+            the format specified with full_bboxes.
+    """
     bboxes3d = np.zeros(stack_shape, dtype=np.uint8)
     if full_bboxes:
         for prop in props:
@@ -74,18 +139,23 @@ def create_bboxes_stack(
     return bboxes3d
 
 
-def get_spacing_correction(
-    labels: np.ndarray,
-    spacing: tuple[int, int, int],
-) -> None:
-    spacing_corrected_props = measure.regionprops(
-        label_image=labels,
-        spacing=spacing,
-    )
-    return spacing_corrected_props
+def make_centroids_stack(
+    props: list[Region],
+    shape: tuple[int, int, int],
+) -> np.ndarray:
+    """Returns an binary image stack of specified shape containing True
+    where the centroids of the elements in props are located.
 
+    Args:
+        props (list[Region]): List of region properties used to which's
+            centroids will be placed in the output image stack.
+        shape (tuple[int, int, int]): The shape of the ouput image
+            stack.
 
-def make_centroids_stack(props: Region, shape: tuple[int, int, int]):
+    Returns:
+        np.ndarray: The image stack containing the positions of
+            the centroids.
+    """
 
     centroids_coords = [prop.centroid for prop in props]
     centroids_stack = np.zeros(shape=shape, dtype=bool)
@@ -103,12 +173,31 @@ def process_capsule_hull(
     processed_stack: np.ndarray,
     props: list[Region],
     metadata: dict,
+    trac_nb_thresh: int,
     plane: Plane = Plane.XY,
-) -> None:
+) -> tuple:
+    """Processes image stack by filtering the images by number of
+    tracers, computing the convex hull drawn by the tracers and
+    measuring the region properties of the hull.
+
+    Args:
+        processed_stack (np.ndarray): Image stack to be processed.
+        props (list[Region]): List of region properties of the tracers
+            in the image stack.
+        metadata (dict): Metadata of the image stack.
+        trac_nb_thresh (int): threshold for starting to include images
+            in the convex hull computation.
+        plane (Plane, optional): The plane type in which to perform
+            the number thresholding step. Defaults to Plane.XY.
+
+    Returns:
+        tuple: An image stack of the computed convex hull and its region
+            properties.
+    """
     filtered_hull_slices = get_filtered_stack(
         image_stack=processed_stack,
         regions=props,
-        threshold=20,
+        threshold=trac_nb_thresh,
         plane=plane,
     )
     hull = morphology.convex_hull_image(filtered_hull_slices)
@@ -238,7 +327,7 @@ def get_filtered_stack(
     threshold: int,
     plane: Plane,
 ) -> np.ndarray:
-    """Filters out the slices  in an image stack which a below
+    """Filters out the slices in an image stack which are below
     a threshold number of regions in them while keeping consecutivity
     of the slices.
 
@@ -264,7 +353,7 @@ def get_filtered_stack(
     )
 
     # remove the planes with too little amount of tracers
-    filtered_slices_inidces = [
+    filtered_slices_indices = [
         i
         for i, elt in enumerate(
             bboxes_crossed_by_slices,
@@ -274,11 +363,11 @@ def get_filtered_stack(
 
     # check if the remaining slices are still consecutive
     unconsecutive_indices = find_unconsecutives(
-        lst=filtered_slices_inidces,
+        lst=filtered_slices_indices,
         sort=False,
     )
     filled_slices_indices = fill_unconsecutive(
-        lst=filtered_slices_inidces,
+        lst=filtered_slices_indices,
         unconsecutive_indices=unconsecutive_indices,
     )
 
