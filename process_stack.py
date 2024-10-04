@@ -12,7 +12,6 @@ from process_stack_utils import (
     morphological_opening,
     measure_particles,
     create_bboxes_stack,
-    get_spacing_correction,
     make_centroids_stack,
     process_capsule_hull,
 )

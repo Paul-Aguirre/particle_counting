@@ -7,8 +7,6 @@ import numpy as np
 import matplotlib
 from matplotlib import pyplot as plt
 import seaborn as sns
-import seaborn.objects as so
-from scipy.stats import gaussian_kde
 
 from files_io import Result
 
@@ -28,7 +26,7 @@ class DistributionPlot(NamedTuple):
     """
 
     fig: matplotlib.figure.Figure
-    ax: matplotlib.axes.Axes | list[matplotlib.axes.Axes]
+    ax: matplotlib.axes.Axes | Sequence[matplotlib.axes.Axes]
 
 
 def hist_freq_cum(

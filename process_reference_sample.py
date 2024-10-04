@@ -36,8 +36,8 @@ def process_reference_sample(
     # * Loading image stack
     image_stack, metadata = load_image_stack(
         str(datapath),
-        zstart=config["stack_start"],
-        zstop=config["stack_stop"],
+        zstart=config["zstart"],
+        zstop=config["zstop"],
     )
 
     # * processing image stack
@@ -50,7 +50,7 @@ def process_reference_sample(
 
     # * Displaying (optionnal) stack in MultiSliceViewer
     if view_stack:
-        viewer = MultiSliceViewer()
+        viewer = MultiSliceViewer(lognorm=True)
         viewer.plot(
             # volume=results["binary"],
             volume=image_stack,
