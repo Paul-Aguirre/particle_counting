@@ -618,7 +618,7 @@ def make_colored_overlay(
     """
     bbox_overlay = np.zeros(
         (*volume.shape, 4),
-        dtype=np.float16,
+        dtype=np.float32,
     )
     for i in color_index.value:
         bbox_overlay[..., i] = volume
@@ -641,6 +641,6 @@ if __name__ == "__main__":
     else:
         raise ValueError('File must be valid "NPY" or "ND2" format.')
     print(f"Openning '{path.name}'.")
-    viewer = MultiSliceViewer(lognorm=True)
+    viewer = MultiSliceViewer(lognorm=True, datafile=path)
     viewer.plot(volume=image_stack)
     viewer.show()
