@@ -28,6 +28,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
 
     # * loading the substack from the main large image
     capsules_records = []
+    capsules_processing_results = []
     for substack, metadata in get_selection_stack(config=config, datapath=datapath):
         # * applying process stack to each substack
         results = process_stack(
@@ -38,14 +39,42 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
             capsule=True,
             use_centroids=True,
         )
+        capsules_processing_results.append(results)
         # * extract capsule size parameters
         assert len(results["hull_props"]) == 1
         capsule_volume = results["hull_props"][0].area  # in µm^3
         # (area for 3D object is volume, checked in scikit image source code)
         capsule_diameter = results["hull_props"][0].equivalent_diameter_area
         # (also checked in skimage source code that formula applies to 3D case)
+
         # * and compute pectin concentration in capsule volume
-        particles_in_hull = results["hull"] == results["binary"]
+        # two methods have been thought of for accessing only the tracers
+        # in the hull:
+        # - the die cutting approach:
+        # particles_in_hull = results["hull"] == results["binary"]
+
+        # - the centroid position check approach:
+        particles_in_hull = np.zeros(substack.shape)
+
+        for trac in results["props"]:
+            # testing if tracer centroid is in the hull
+            centroid_coords = tuple(int(coord) for coord in trac.centroid)
+            if results["hull"][centroid_coords]:
+                # extracting bbox dimensions/position to fill tracer
+                # image back in it
+                mind, minr, minc, maxd, maxr, maxc = trac.bbox
+                depths = np.arange(mind, maxd)
+                rows = np.arange(minr, maxr)
+                cols = np.arange(minc, maxc)
+                dgrid, rgrid, cgrid = np.meshgrid(
+                    depths,
+                    rows,
+                    cols,
+                    indexing="ij",
+                )
+                particles_in_hull[dgrid, rgrid, cgrid] = trac.image
+
+        # the actual computations:
         particles_in_hull_results = process_stack(
             image_stack=particles_in_hull,
             metadata=metadata,
@@ -60,14 +89,26 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         thus reducing particle count.
         """
 
+        # fmt: off
         median_num_pixels = np.median(
             np.array(
-                [prop.num_pixels for prop in particles_in_hull_results["scaled_props"]],
+                [prop.num_pixels 
+                 for prop in particles_in_hull_results["scaled_props"]],
             )
         )
-        nums_pixels = np.array([prop.num_pixels for prop in results["props"]])
+        # fmt: on
+
+        nums_pixels = np.array(
+            [prop.num_pixels for prop in particles_in_hull_results["props"]]
+        )
+
         num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
-        particle_concentration_in_volume = num_particles_in_volume / capsule_volume
+
+        # fmt: off
+        particle_concentration_in_volume = (
+            num_particles_in_volume / capsule_volume
+            )
+        # fmt: on
 
         pectin_experimental_concentration = (
             particle_concentration_in_volume
@@ -79,7 +120,10 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
             "capsule_diameter": Result(capsule_diameter, "um"),
             "capsule_volume": Result(capsule_volume, "um^3"),
             "median_num_pixels": Result(median_num_pixels, "pixels"),
-            "num_particles_in_volume": Result(num_particles_in_volume, "particles"),
+            "num_particles_in_volume": Result(
+                num_particles_in_volume,
+                "particles",
+            ),
             "particle_concentration_in_volume": Result(
                 particle_concentration_in_volume, "particles/um^3"
             ),
@@ -87,6 +131,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
                 pectin_experimental_concentration, "g/L"
             ),
         }
+
         capsules_records.append(capsule_record)
 
     # fmt: off
@@ -95,14 +140,19 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         for record in capsules_records
     ]
     # fmt: on
+
     df_capsules_records = pd.DataFrame.from_records(capsules_records_values)
 
     df_capsules_records["c_0"] = config["pectin_concentration"]
-    df_capsules_records["pectin_exp_concs_norm"] = (
-        df_capsules_records.particle_concentration_in_volume / df_capsules_records.c_0
-    )
 
-    return capsules_records, df_capsules_records
+    # fmt: off
+    df_capsules_records["pectin_exp_concs_norm"] = (
+        df_capsules_records.particle_concentration_in_volume 
+        / df_capsules_records.c_0
+    )
+    # fmt: on
+
+    return capsules_records, df_capsules_records, capsules_processing_results
 
 
 def print_capsule_records(records_lst: list[ResultRecord]):
@@ -120,7 +170,9 @@ def print_capsule_records(records_lst: list[ResultRecord]):
 
 def plot_save_capsule_stats() -> None:
     datapath, dirpath, configpath = check_config(askopenfilename())
-    capsules_records, df_capsules_records = measure_capsules(datapath)
+    capsules_records, df_capsules_records, capsules_processing_results = (
+        measure_capsules(datapath)
+    )
     print_capsule_records(capsules_records)
     save_records_path = save_records(
         records_lst=capsules_records,
@@ -155,8 +207,10 @@ def plot_save_capsule_stats() -> None:
     scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
 
     plt.show()
-    return capsules_records, df_capsules_records
+    return capsules_records, df_capsules_records, capsules_processing_results
 
 
 if __name__ == "__main__":
-    capsules_records, df_capsules_records = plot_save_capsule_stats()
+    capsules_records, df_capsules_records, capsules_processing_results = (
+        plot_save_capsule_stats()
+    )
