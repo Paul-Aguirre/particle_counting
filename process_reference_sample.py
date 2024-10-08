@@ -44,9 +44,15 @@ def process_reference_sample(
     results = process_stack(
         image_stack=image_stack,
         metadata=metadata,
+        threshold=config.get("threshold"), # to avoid recomputing it
         particle_diameter_um=config["particle_size_microns"],
         full_bboxes=False,
     )
+    if not config.get("threshold"):
+        config["threshold"] = int(results["threshold"])
+        with open(configpath, "w") as f:
+            toml.dump(config, f)
+    del image_stack # for memory economy
 
     # * Displaying (optionnal) stack in MultiSliceViewer
     if view_stack:
@@ -134,7 +140,7 @@ def process_reference_sample(
         "median_num_pixels": Result(median_num_pixels, "pixels"),  # ?
     }
 
-    return image_stack, metadata, results, ref_results, histograms, plots
+    return metadata, results, ref_results, histograms, plots
 
 
 def print_reference_results(datapath:Path, results: dict):
@@ -171,14 +177,21 @@ def print_reference_results(datapath:Path, results: dict):
 
 if __name__ == "__main__":
     datapath = Path(askopenfilename(title="Choose a data file"))
-    # fmt: off
-    image_stack, metadata, results, ref_results, histograms, plots =\
-        process_reference_sample(datapath)
-    # fmt: on
+    (
+        metadata,
+        results,
+        ref_results,
+        histograms,
+        plots,
+    ) = process_reference_sample(
+        datapath,
+        view_stack=False,
+        view_distributions=True,
+        )
     print_reference_results(datapath, ref_results)
     save_results_path = save_records(
         [ref_results],
         datapath=datapath,
         suffix="reference_results",
     )
-    print(f'Reference results saved at "{save_results_path}".')
+    print(f'Reference sample results saved at "{save_results_path}".')

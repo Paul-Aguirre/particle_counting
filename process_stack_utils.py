@@ -92,7 +92,7 @@ def measure_particles(
             metadata["pixel_microns"],  # x
         ),
     )
-    return labels, props, scaled_props
+    return props, scaled_props
 
 
 def create_bboxes_stack(

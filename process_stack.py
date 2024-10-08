@@ -25,10 +25,11 @@ def process_stack(
     threshold: int | None = None,
     morph_open: bool = True,
     particle_diameter_um: float | None = None,  # in microns
-    full_bboxes: bool = True,
-    spacing: tuple[float, float, float] | None = None,
-    use_centroids: bool = True,
+    bboxes: bool = False,
+    full_bboxes: bool = False,
+    # spacing: tuple[float, float, float] | None = None,
     capsule: bool = False,
+    use_centroids: bool = True,
     trac_nb_thresh: int = 20,
     filtering_plane: Plane = Plane.XY,
 ) -> dict:
@@ -75,17 +76,17 @@ def process_stack(
             tuple. Is used, if provided, to compute the region
             properties of the tracers again. The results are listed
             separately from the original region properties.
-            Defaults to None.
-        use_centroids (bool, optional): If True, an image stack is
-            created containing only tracers centroids. Using this image
-            stack instead of full tracers images for the convex hull
-            calculation significantly reduces computation time.
-            Defaults to True.
+            Defaults to None. (Deprecated)
         capsule (bool, optional): If True, the capsule volume is
             isolated as a convex hull and its properties are measured.
             The images in the stack are first filtered by number of
             tracers before computing the convex hull to eliminate lonely
             suspended tracers. Defaults to False.
+        use_centroids (bool, optional): If True, an image stack is
+            created containing only tracers centroids. Using this image
+            stack instead of full tracers images for the convex hull
+            calculation significantly reduces computation time.
+            Defaults to True.
         trac_nb_thresh (int, optional): The number of tracer to be used
             as threshold for starting to include images in the convex
             hull computation. This will not result in not counting
@@ -112,7 +113,7 @@ def process_stack(
                 the measured regions/tracers.
             * "spacing_corrected_props": list of region properties for
                 all labeled regions present image stack computed with
-                provided spacing tuple stored at the "labels" key
+                provided spacing tuple stored at the "labels" key (deprecated)
             * "centroids_stack": binary image stack containing centroids
                 positions for the regions at "labels"
             * "hull": binary image stack of the convex hull
@@ -143,31 +144,32 @@ def process_stack(
     results.update(opened=processed_stack)
 
     # * Labeling and measuring particles properties
-    labels, props, scaled_props = measure_particles(
+    props, scaled_props = measure_particles(
         processed_stack=processed_stack,
         metadata=metadata,
     )
-    results.update(labels=labels, props=props, scaled_props=scaled_props)
+    results.update(props=props, scaled_props=scaled_props)
 
     # * Creating a stack of bboxes for displaying
-    bboxes3d = create_bboxes_stack(
-        stack_shape=processed_stack.shape,
-        props=props,
-        full_bboxes=full_bboxes,
-    )
-    results.update(bboxes3d=bboxes3d)
+    if bboxes:
+        bboxes3d = create_bboxes_stack(
+            stack_shape=processed_stack.shape,
+            props=props,
+            full_bboxes=full_bboxes,
+        )
+        results.update(bboxes3d=bboxes3d)
 
     # * Correcting spacing (optinnal) in order to make the tracers
     # * appear as spheres
-    if spacing:
-        spacing_corrected_props = measure.regionprops(
-            label_image=labels,
-            spacing=spacing,
-        )
-        results.update(spacing_corrected_props=spacing_corrected_props)
+    # if spacing:
+    #     spacing_corrected_props = measure.regionprops(
+    #         label_image=labels,
+    #         spacing=spacing,
+    #     )
+    #     results.update(spacing_corrected_props=spacing_corrected_props)
 
     # * Extracting the centroids
-    if use_centroids:
+    if use_centroids and capsule:
         processed_stack = make_centroids_stack(
             props=props,
             shape=processed_stack.shape,

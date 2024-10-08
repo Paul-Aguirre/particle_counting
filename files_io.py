@@ -183,9 +183,10 @@ def check_config(
         print(f"Created directory '{dirpath}'.")
 
     if not configpath.exists():
-        _, metadata = load_image_stack(str(datapath))
+        image_stack, metadata = load_image_stack(str(datapath))
+        del image_stack
         initialize_config(configpath, metadata)
-        print(f"Created {configpath.name}.")
+        print(f"Created file '{configpath}'.")
         if make_pause:
             print("Please edit the configuration file.")
             input("Press Enter to continue.")
