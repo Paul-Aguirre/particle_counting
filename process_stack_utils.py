@@ -5,9 +5,12 @@ function from the process_stack.py module.
 import numpy as np
 from skimage import filters, measure, morphology, draw
 
+# from memory_profiler import profile
+
 from plane import Plane, Region
 
 
+# @profile
 def threshold_stack(
     image_stack: np.ndarray,
     thresh: int | None = None,
@@ -31,6 +34,7 @@ def threshold_stack(
     return thresh, processed_stack
 
 
+# @profile
 def morphological_opening(
     processed_stack: np.ndarray,
     metadata: dict,
@@ -64,6 +68,7 @@ def morphological_opening(
     return processed_stack
 
 
+# @profile
 def measure_particles(
     processed_stack: np.ndarray,
     metadata: dict,
@@ -95,6 +100,7 @@ def measure_particles(
     return props, scaled_props
 
 
+# @profile
 def create_bboxes_stack(
     stack_shape: tuple[int, int, int],
     props: list[Region],
@@ -139,6 +145,7 @@ def create_bboxes_stack(
     return bboxes3d
 
 
+# @profile
 def make_centroids_stack(
     props: list[Region],
     shape: tuple[int, int, int],
@@ -169,6 +176,7 @@ def make_centroids_stack(
     return centroids_stack
 
 
+# @profile
 def process_capsule_hull(
     processed_stack: np.ndarray,
     props: list[Region],
@@ -299,6 +307,7 @@ def fill_unconsecutive(
     return lst_copy
 
 
+# @profile
 def get_hull_slices(image_stack: np.ndarray, plane: Plane) -> np.ndarray:
     """Scans a stack of binary images and computes the convex hull
     of each binary image and returns it as a binary image stack.
@@ -321,6 +330,7 @@ def get_hull_slices(image_stack: np.ndarray, plane: Plane) -> np.ndarray:
     return hull_stack
 
 
+# @profile
 def get_filtered_stack(
     image_stack: np.ndarray,
     regions: list[Region],

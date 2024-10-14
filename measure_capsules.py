@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
 
+# from memory_profiler import profile
+
 from files_io import (
     Result,
     ResultRecord,
@@ -20,6 +22,7 @@ from process_stack import process_stack
 from statistics_plots import capsule_distrib_kde, capsule_scatter
 
 
+# @profile
 def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
     # * getting back the selections from the config file
     datapath, dirpath, configpath = check_config(datapath)

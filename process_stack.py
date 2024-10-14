@@ -6,6 +6,8 @@ this function are regrouped in a separate module: process_stack_utils.py
 import numpy as np
 from skimage import measure
 
+# from memory_profiler import profile
+
 from plane import Plane
 from process_stack_utils import (
     threshold_stack,
@@ -17,6 +19,7 @@ from process_stack_utils import (
 )
 
 
+# @profile
 def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
