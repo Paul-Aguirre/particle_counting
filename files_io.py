@@ -132,6 +132,12 @@ def get_selection_stack(
         yield image_stack, metadata
 
 
+def get_metadata(path: str | Path):
+    with ND2Reader(str(path)) as images:
+        metadata: dict = images.metadata
+    return metadata
+
+
 def initialize_config(filename: Path | str, metadata: dict) -> None:
     """Initializes TOML configuration file.
 
@@ -175,16 +181,15 @@ def check_config(
             respectively.
     """
     datapath = Path(datapath)
-    dirpath = datapath.parent / f"{datapath.stem}"
-    configpath = dirpath / f"{datapath.stem}_config.toml"
+    dirpath: Path = datapath.parent / f"{datapath.stem}"
+    configpath: Path = dirpath / f"{datapath.stem}_config.toml"
 
     if not dirpath.exists():
         dirpath.mkdir()
         print(f"Created directory '{dirpath}'.")
 
     if not configpath.exists():
-        image_stack, metadata = load_image_stack(str(datapath))
-        del image_stack
+        metadata = get_metadata(datapath)
         initialize_config(configpath, metadata)
         print(f"Created file '{configpath}'.")
         if make_pause:
