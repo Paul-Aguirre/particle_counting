@@ -209,7 +209,8 @@ def process_capsule_hull(
         plane=plane,
     )
     hull = morphology.convex_hull_image(filtered_hull_slices)
-    labeled_hull = measure.label(hull)
+    labeled_hull = measure.label(hull).astype(np.uint8)
+    # uint8 is enough here because only 1 region is present
     hull_props = measure.regionprops(
         labeled_hull,
         spacing=(
