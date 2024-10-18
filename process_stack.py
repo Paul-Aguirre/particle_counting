@@ -12,7 +12,7 @@ from plane import Plane
 from process_stack_utils import (
     threshold_stack,
     morphological_opening,
-    measure_particles,
+    # measure_particles,
     create_bboxes_stack,
     make_centroids_stack,
     process_capsule_hull,
@@ -23,14 +23,15 @@ from process_stack_utils import (
 def process_stack(
     image_stack: np.ndarray,
     metadata: dict,
-    results: dict = {},
+    results: dict | None = None,
     binary: bool = False,
     threshold: int | None = None,
-    morph_open: bool = True,
+    morph_open: bool = False,
     particle_diameter_um: float | None = None,  # in microns
+    scale_props: bool = False,
     bboxes: bool = False,
     full_bboxes: bool = False,
-    # spacing: tuple[float, float, float] | None = None,
+    # spacing: tuple[float, float, float] | None = None, # deprecated
     capsule: bool = False,
     use_centroids: bool = True,
     trac_nb_thresh: int = 20,
@@ -65,17 +66,27 @@ def process_stack(
             otherwise. Defaults to None.
         morph_open (bool, optional): If True, a morphological opening
             opening operation is performed on the image stack.
-            Defaults to True.
+            Defaults to False.
         particle_diameter_um (float | None, optional): The particle
             diameter used in the analysed sample. Only necessary if
             morph_open is set to True, will be ignored otherwise.
             Defaults to None.
+        scale_props (bool, optionnal): If True, computes the region
+            properties a second time while taking the x, y and z
+            resolution of the image stack. The list of these properties
+            is stored at the "scaled_props" in the results dictionnary.
+            Defaults to False.
+        bboxes (bool, optionnal): If True, creates a binary image stack
+            of the same shape as `image_stack` containing the bboxes of
+            the elements in props. This image stack is stored at
+            the "bboxes3d" key in the results dictionnary.
         full_bboxes (bool, optionnal): If True, the bboxes returned at
             the "bboxes3d" key are full, and thus appear as filled
             squares when plotted in 2D. If False, the bboxes are drawn
             as square perimeters when plotted in 2D, this prevents
-            overlapping when displaying. Defaults to True.
-        spacing (tuple[float, float, float] | None, optional): A z,y,x
+            overlapping when displaying. Ignored if `bboxes` flag is set
+            to False. Defaults to False.
+        spacing (tuple[float, float, float] | None, optional): A (z,y,x)
             tuple. Is used, if provided, to compute the region
             properties of the tracers again. The results are listed
             separately from the original region properties.
@@ -123,6 +134,8 @@ def process_stack(
             * "hull_props": list of region properties (of length 1) for
                 the convex hull at "hull"
     """
+    if results is None:
+        results = {}  # ensuring a fresh empty dictionnary
 
     # * Isolating the particles by thresholding
     if not binary:
@@ -144,14 +157,23 @@ def process_stack(
             metadata=metadata,
             particle_diameter_um=particle_diameter_um,
         )
-    results.update(opened=processed_stack)
+        results.update(opened=processed_stack)
 
     # * Labeling and measuring particles properties
-    props, scaled_props = measure_particles(
-        processed_stack=processed_stack,
-        metadata=metadata,
-    )
-    results.update(props=props, scaled_props=scaled_props)
+    labels = measure.label(processed_stack).astype(np.uint16)
+    props = measure.regionprops(labels)
+    results.update(props=props)
+    if scale_props:
+        scaled_props = measure.regionprops(
+            label_image=labels,
+            spacing=(
+                np.mean(np.diff(np.array(metadata["z_coodinates"]))),  # z
+                metadata["pixel_microns"],  # y
+                metadata["pixel_microns"],  # x
+            ),
+        )
+        results.update(scaled_props=scaled_props)
+    del labels
 
     # * Creating a stack of bboxes for displaying
     if bboxes:
