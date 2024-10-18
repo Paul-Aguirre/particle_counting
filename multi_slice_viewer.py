@@ -630,12 +630,15 @@ def make_colored_overlay(
     return bbox_overlay
 
 
-if __name__ == "__main__":
-    # keep it without using the display_file method to have access
-    # to image_stack and metadata after execution
+def main():
+    """Prompts the user to choose a file to visualise.
+
+    Raises:
+        ValueError: In case the selected file is not of the right type.
+    """
     path = Path(askopenfilename())
     if path.suffix == ".nd2":
-        image_stack, metadata = load_image_stack(path=str(path))
+        image_stack, _ = load_image_stack(path=str(path))
     elif path.suffix == ".npy":
         image_stack = np.load(path)
     else:
@@ -644,3 +647,7 @@ if __name__ == "__main__":
     viewer = MultiSliceViewer(lognorm=True, datafile=path)
     viewer.plot(volume=image_stack)
     viewer.show()
+
+
+if __name__ == "__main__":
+    main()
