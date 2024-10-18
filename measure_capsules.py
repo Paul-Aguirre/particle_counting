@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
+import toml
 
 # from memory_profiler import profile
 
@@ -24,6 +25,9 @@ from statistics_plots import capsule_distrib_kde, capsule_scatter
 
 # @profile
 def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
+
+    print(f"Analysing '{str(datapath)}'.")
+
     # * getting back the selections from the config file
     datapath, dirpath, configpath = check_config(datapath)
     with open(configpath, "rb") as f:
@@ -31,18 +35,27 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
 
     # * loading the substack from the main large image
     capsules_records = []
-    capsules_processing_results = []
+    # capsules_processing_results = []
+    results = {}
     for substack, metadata in get_selection_stack(config=config, datapath=datapath):
+
         # * applying process stack to each substack
-        results = process_stack(
+        process_stack(
             image_stack=substack,
             metadata=metadata,
+            results=results,
+            threshold=config.get("threshold"),
             morph_open=False,
             full_bboxes=False,
             capsule=True,
             use_centroids=True,
         )
-        capsules_processing_results.append(results)
+        if not config.get("threshold"):
+            config["threshold"] = int(results["threshold"])
+            with open(configpath, "w") as f:
+                toml.dump(config, f)
+        # capsules_processing_results.append(results)
+
         # * extract capsule size parameters
         assert len(results["hull_props"]) == 1
         capsule_volume = results["hull_props"][0].area  # in µm^3
@@ -84,6 +97,8 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
             binary=True,
             morph_open=False,
         )
+        del particles_in_hull
+
         """ # ? Should we only count the volume of tracers inside
         the hull (current implementation)?
         Or instead count the volume of tracers which have their centroid
@@ -96,7 +111,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         median_num_pixels = np.median(
             np.array(
                 [prop.num_pixels 
-                 for prop in particles_in_hull_results["scaled_props"]],
+                 for prop in particles_in_hull_results["props"]],
             )
         )
         # fmt: on
@@ -155,7 +170,10 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
     )
     # fmt: on
 
-    return capsules_records, df_capsules_records, capsules_processing_results
+    return (
+        capsules_records,
+        df_capsules_records,
+    )  # capsules_processing_results
 
 
 def print_capsule_records(records_lst: list[ResultRecord]):
@@ -173,9 +191,12 @@ def print_capsule_records(records_lst: list[ResultRecord]):
 
 def plot_save_capsule_stats() -> None:
     datapath, dirpath, configpath = check_config(askopenfilename())
-    capsules_records, df_capsules_records, capsules_processing_results = (
-        measure_capsules(datapath)
-    )
+    (
+        capsules_records,
+        df_capsules_records,
+        # capsules_processing_results,
+    ) = measure_capsules(datapath)
+
     print_capsule_records(capsules_records)
     save_records_path = save_records(
         records_lst=capsules_records,
@@ -210,10 +231,16 @@ def plot_save_capsule_stats() -> None:
     scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
 
     plt.show()
-    return capsules_records, df_capsules_records, capsules_processing_results
+    return (
+        capsules_records,
+        df_capsules_records,
+        # capsules_processing_results,
+    )
 
 
 if __name__ == "__main__":
-    capsules_records, df_capsules_records, capsules_processing_results = (
-        plot_save_capsule_stats()
-    )
+    (
+        capsules_records,
+        df_capsules_records,
+        # capsules_processing_results,
+    ) = plot_save_capsule_stats()
