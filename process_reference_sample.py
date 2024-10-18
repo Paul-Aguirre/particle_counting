@@ -23,7 +23,7 @@ from files_io import (
 
 def process_reference_sample(
     datapath: str | Path,
-    view_stack: bool = True,
+    view_stack: bool = False,
     view_distributions: bool = True,
 ) -> tuple:
 
@@ -41,18 +41,33 @@ def process_reference_sample(
     )
 
     # * processing image stack
-    results = process_stack(
-        image_stack=image_stack,
-        metadata=metadata,
-        threshold=config.get("threshold"), # to avoid recomputing it
-        particle_diameter_um=config["particle_size_microns"],
-        full_bboxes=False,
-    )
+    if view_stack:
+        results = process_stack(
+            image_stack=image_stack,
+            metadata=metadata,
+            threshold=config.get("threshold"),  # to avoid recomputing it
+            morph_open=True,
+            particle_diameter_um=config["particle_size_microns"],
+            bboxes=True,
+            full_bboxes=False,
+        )
+    else:
+        results = process_stack(
+            image_stack=image_stack,
+            metadata=metadata,
+            threshold=config.get("threshold"),  # to avoid recomputing it
+            morph_open=True,
+            particle_diameter_um=config["particle_size_microns"],
+            bboxes=False,
+        )
+
+    # to avoid recomputing it
     if not config.get("threshold"):
         config["threshold"] = int(results["threshold"])
         with open(configpath, "w") as f:
             toml.dump(config, f)
-    del image_stack # for memory economy
+
+    del image_stack  # for memory economy
 
     # * Displaying (optionnal) stack in MultiSliceViewer
     if view_stack:
@@ -79,7 +94,6 @@ def process_reference_sample(
     num_particles = np.float64(len(results["props"]))
 
     particle_concentration = np.float64(num_particles / total_volume)
-
 
     # * Plotting particle size distribution
     histograms, plots = particle_distributions(
@@ -111,7 +125,9 @@ def process_reference_sample(
         )
     )
     nums_pixels = np.array([prop.num_pixels for prop in results["props"]])
+
     num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
+
     particle_concentration_in_volume = num_particles_in_volume / total_volume
 
     if view_distributions:
@@ -143,7 +159,7 @@ def process_reference_sample(
     return metadata, results, ref_results, histograms, plots
 
 
-def print_reference_results(datapath:Path, results: dict):
+def print_reference_results(datapath: Path, results: dict):
     print(f"File: {datapath.name}")
     print(
         "Total volume analysed: "
@@ -161,7 +177,7 @@ def print_reference_results(datapath:Path, results: dict):
         f"{results["num_particle_concentration"].value:.4e} "
         f"{results["num_particle_concentration"].unit}\n"
     )
-    
+
     print("{:-^72}".format("Particle number calculations in volume"))
     print(
         "Number of particles: "
@@ -187,7 +203,7 @@ if __name__ == "__main__":
         datapath,
         view_stack=False,
         view_distributions=True,
-        )
+    )
     print_reference_results(datapath, ref_results)
     save_results_path = save_records(
         [ref_results],
