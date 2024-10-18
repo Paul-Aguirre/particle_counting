@@ -38,6 +38,7 @@ def process_reference_sample(
         str(datapath),
         zstart=config["zstart"],
         zstop=config["zstop"],
+        zstep=config["zstep"],
     )
 
     # * processing image stack

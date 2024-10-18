@@ -50,6 +50,7 @@ def load_image_stack(
     ystop: int | None = None,
     zstart: int = 0,
     zstop: int | None = None,
+    zstep: int = 1,
 ) -> tuple[np.ndarray, dict]:
     """Loads the data and metadata from an ND2 file. Optionnaly only
     within specifyied selection boundaries, if specifyied, the metadata
@@ -73,16 +74,24 @@ def load_image_stack(
         zstop (int | None, optional): Higher selection boundary over the
             z-axis. If None, data is sliced to the end of the z-axis.
             Defaults to None.
+        zstep (int, optionnal): The slice step to select the images that
+            will be loaded. Defaults to 1.
 
     Returns:
-        tuple[np.ndarray, dict]: _description_
+        tuple[np.ndarray, dict]: the image stack as a Numpy array and
+            the metadata, corrected according to the selection
+            parameters.
     """
 
     with ND2Reader(str(path)) as images:
-        image_stack = np.array([frame for frame in images])
+        # fmt: off
+        image_stack = np.array([
+            frame for frame in images[zstart:zstop:zstep]
+            ])
+        # fmt: on
         metadata = images.metadata
 
-    image_stack = image_stack[zstart:zstop, ystart:ystop, xstart:xstop]
+    image_stack = image_stack[:, ystart:ystop, xstart:xstop]
     if xstop:
         metadata["width"] = xstop - xstart
     else:
@@ -93,11 +102,11 @@ def load_image_stack(
     else:
         metadata["height"] = image_stack.shape[1] - ystart
 
-    metadata["z_coordinates"] = metadata["z_coordinates"][zstart:zstop]
+    metadata["z_coordinates"] = metadata["z_coordinates"][zstart:zstop:zstep]
     if zstop:
-        metadata["z_levels"] = range(zstart, zstop)
+        metadata["z_levels"] = range(zstart, zstop, zstep)
     else:
-        metadata["z_levels"] = range(zstart, metadata["z_levels"].stop)
+        metadata["z_levels"] = range(zstart, metadata["z_levels"].stop, zstep)
 
     return image_stack, metadata
 
@@ -128,6 +137,7 @@ def get_selection_stack(
             ystop=selection["ystop"],
             zstart=config["zstart"],
             zstop=config["zstop"],
+            zstep=config["zstep"],
         )
         yield image_stack, metadata
 
@@ -150,6 +160,7 @@ def initialize_config(filename: Path | str, metadata: dict) -> None:
     toml_dict = {
         "zstart": metadata["z_levels"].start,
         "zstop": metadata["z_levels"].stop,
+        "zstep": 1,
         "particle_size_microns": 1,  # defaults to 1 µm
         "particle_concentration": 1e-4,  # in particles/µm^3
         "pectin_concentration": 40,  # in g/L
