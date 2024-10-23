@@ -21,6 +21,48 @@ from files_io import (
 )
 
 
+def compute_total_volume(metadata: dict) -> np.float64:
+
+    total_volume = np.float64(
+        abs(metadata["z_coordinates"][-1] - metadata["z_coordinates"][0])
+        * metadata["width"]
+        * metadata["height"]
+        * metadata["pixel_microns"] ** 2
+    )
+    return total_volume
+
+
+def compute_particle_concentration_in_number(
+    processing_results: dict,
+    total_volume: float,
+) -> tuple[np.float64, np.float64]:
+
+    num_regions = np.float64(len(processing_results["props"]))
+    particle_concentration_in_number = np.float64(num_regions / total_volume)
+    return num_regions, particle_concentration_in_number
+
+
+def compute_particle_concentration_in_volume(
+    processing_results: dict,
+    total_volume: float,
+) -> tuple[np.float64, np.float64, np.float64]:
+
+    # fmt: off
+    nums_pixels = np.array([
+        prop.num_pixels for prop in processing_results["props"]
+        ])
+    # fmt: on
+    median_num_pixels = np.median(nums_pixels)
+    num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
+    particle_concentration_in_volume = num_particles_in_volume / total_volume
+
+    return (
+        median_num_pixels,
+        num_particles_in_volume,
+        particle_concentration_in_volume,
+    )
+
+
 def process_reference_sample(
     datapath: str | Path,
     view_stack: bool = False,
@@ -35,7 +77,7 @@ def process_reference_sample(
 
     # * Loading image stack
     image_stack, metadata = load_image_stack(
-        str(datapath),
+        path=datapath,
         zstart=config["zstart"],
         zstop=config["zstop"],
         zstep=config["zstep"],
@@ -47,6 +89,7 @@ def process_reference_sample(
             image_stack=image_stack,
             metadata=metadata,
             threshold=config.get("threshold"),  # to avoid recomputing it
+            threshold_by_image=config.get("threshold_by_image", False),
             morph_open=True,
             particle_diameter_um=config["particle_size_microns"],
             bboxes=True,
@@ -57,18 +100,17 @@ def process_reference_sample(
             image_stack=image_stack,
             metadata=metadata,
             threshold=config.get("threshold"),  # to avoid recomputing it
+            threshold_by_image=config.get("threshold_by_image", False),
             morph_open=True,
             particle_diameter_um=config["particle_size_microns"],
             bboxes=False,
         )
 
-    # to avoid recomputing it
+    # to avoid recomputing threshold, it is saved
     if not config.get("threshold"):
         config["threshold"] = int(results["threshold"])
         with open(configpath, "w") as f:
             toml.dump(config, f)
-
-    del image_stack  # for memory economy
 
     # * Displaying (optionnal) stack in MultiSliceViewer
     if view_stack:
@@ -83,28 +125,28 @@ def process_reference_sample(
             ),
         )
         plt.show()
+    del image_stack  # for memory economy
 
     # * Computing particle concentration in number
-    total_volume = np.float64(
-        abs(metadata["z_coordinates"][-1] - metadata["z_coordinates"][0])
-        * metadata["width"]
-        * metadata["height"]
-        * metadata["pixel_microns"] ** 2
+    total_volume = compute_total_volume(metadata=metadata)
+
+    (
+        num_regions,
+        particle_concentration_in_number,
+    ) = compute_particle_concentration_in_number(
+        processing_results=results,
+        total_volume=total_volume,
     )
-
-    num_particles = np.float64(len(results["props"]))
-
-    particle_concentration = np.float64(num_particles / total_volume)
 
     # * Plotting particle size distribution
     histograms, plots = particle_distributions(
         results,
         metadata,
-        bins_xy=20,
-        bins_z=20,
-        bins_pixels=100,
-        bins_area=100,
-        bins_diameter=100,
+        bins_xy="auto",
+        bins_z="auto",
+        bins_pixels="auto",
+        bins_area="auto",
+        bins_diameter="auto",
         boxplot_config={"showfliers": False},
         # verbose=True,
     )
@@ -120,16 +162,14 @@ def process_reference_sample(
     # ! correct de la concentration en particules en volume pour les
     # ! traceurs de 0.2 microns.
     # ? Utiliser le fractile d'ordre 0.1 ou 0.2 ?
-    median_num_pixels = np.median(
-        np.array(
-            [prop.num_pixels for prop in results["props"]],
-        )
+    (
+        median_num_pixels,
+        num_particles_in_volume,
+        particle_concentration_in_volume,
+    ) = compute_particle_concentration_in_volume(
+        processing_results=results,
+        total_volume=total_volume,
     )
-    nums_pixels = np.array([prop.num_pixels for prop in results["props"]])
-
-    num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
-
-    particle_concentration_in_volume = num_particles_in_volume / total_volume
 
     if view_distributions:
         plt.show()
@@ -141,9 +181,9 @@ def process_reference_sample(
             unit="um",
         ),
         "total_volume": Result(total_volume, "um^3"),
-        "num_particles_counted": Result(num_particles, "particles"),
+        "num_particles_counted": Result(num_regions, "particles"),
         "num_particle_concentration": Result(
-            value=particle_concentration,
+            value=particle_concentration_in_number,
             unit="particles/um^3",
         ),
         "vol_particles_counted": Result(
@@ -268,8 +308,10 @@ def print_reference_results(datapath: Path, results: dict):
     )
 
 
-if __name__ == "__main__":
+def main() -> None:
     datapath = Path(askopenfilename(title="Choose a data file"))
+    if not datapath.is_file():
+        raise ValueError("No file was selected.")
     (
         metadata,
         results,
@@ -288,3 +330,22 @@ if __name__ == "__main__":
         suffix="reference_results",
     )
     print(f'Reference sample results saved at "{save_results_path}".')
+    return (
+        metadata,
+        results,
+        ref_results,
+        histograms,
+        plots,
+    )
+
+
+if __name__ == "__main__":
+    (
+        metadata,
+        results,
+        ref_results,
+        histograms,
+        plots,
+    ) = main()
+    # main()
+    # test_threshold_sensitivity(askopenfilename())
