@@ -20,7 +20,11 @@ from files_io import (
     save_records,
 )
 from process_stack import process_stack
-from statistics_plots import capsule_distrib_kde, capsule_scatter
+from statistics_plots import (
+    capsule_distrib_kde,
+    capsule_scatter,
+    particle_distributions,
+)
 
 
 # @profile
@@ -33,10 +37,14 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
     with open(configpath, "rb") as f:
         config = tomllib.load(f)
 
+    if not config["selections"]:
+        raise ValueError("No selected region in the stack.")
+
     # * loading the substack from the main large image
-    capsules_records = []
+    capsules_records: list = []
     # capsules_processing_results = []
-    results = {}
+    results: dict = {}
+    n_iter: int = 1
     for substack, metadata in get_selection_stack(config=config, datapath=datapath):
 
         # * applying process stack to each substack
@@ -45,7 +53,9 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
             metadata=metadata,
             results=results,
             threshold=config.get("threshold"),
+            threshold_by_image=config.get("threshold_by_image", False),
             morph_open=False,
+            bboxes=False,
             full_bboxes=False,
             capsule=True,
             use_centroids=True,
@@ -56,12 +66,35 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
                 toml.dump(config, f)
         # capsules_processing_results.append(results)
 
+        # * Plotting particle size distribution
+        histograms, plots = particle_distributions(
+            results,
+            metadata,
+            bins_xy="auto",
+            bins_z="auto",
+            bins_pixels="auto",
+            bins_area="auto",
+            bins_diameter="auto",
+            boxplot_config={"showfliers": False},
+            # verbose=True,
+        )
+        for key, plot in plots.items():
+            plot.fig.savefig(
+                fname=dirpath / f"{datapath.stem}_{key}_hist_no-{n_iter}.png",
+                format="png",
+                # transparent=True,
+            )
+
         # * extract capsule size parameters
         assert len(results["hull_props"]) == 1
         capsule_volume = results["hull_props"][0].area  # in µm^3
         # (area for 3D object is volume, checked in scikit image source code)
         capsule_diameter = results["hull_props"][0].equivalent_diameter_area
         # (also checked in skimage source code that formula applies to 3D case)
+
+        # * compute pectin concentration in number
+        num_particles_in_number = np.float64(len(results["props"]))
+        particle_concentration_in_number = num_particles_in_number / capsule_volume
 
         # * and compute pectin concentration in capsule volume
         # two methods have been thought of for accessing only the tracers
@@ -72,13 +105,13 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         # - the centroid position check approach:
         particles_in_hull = np.zeros(substack.shape)
 
-        for trac in results["props"]:
+        for particle in results["props"]:
             # testing if tracer centroid is in the hull
-            centroid_coords = tuple(int(coord) for coord in trac.centroid)
+            centroid_coords = tuple(int(coord) for coord in particle.centroid)
             if results["hull"][centroid_coords]:
                 # extracting bbox dimensions/position to fill tracer
                 # image back in it
-                mind, minr, minc, maxd, maxr, maxc = trac.bbox
+                mind, minr, minc, maxd, maxr, maxc = particle.bbox
                 depths = np.arange(mind, maxd)
                 rows = np.arange(minr, maxr)
                 cols = np.arange(minc, maxc)
@@ -88,7 +121,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
                     cols,
                     indexing="ij",
                 )
-                particles_in_hull[dgrid, rgrid, cgrid] = trac.image
+                particles_in_hull[dgrid, rgrid, cgrid] = particle.image
 
         # the actual computations:
         particles_in_hull_results = process_stack(
@@ -107,18 +140,11 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         thus reducing particle count.
         """
 
-        # fmt: off
-        median_num_pixels = np.median(
-            np.array(
-                [prop.num_pixels 
-                 for prop in particles_in_hull_results["props"]],
-            )
-        )
-        # fmt: on
-
         nums_pixels = np.array(
             [prop.num_pixels for prop in particles_in_hull_results["props"]]
         )
+
+        median_num_pixels = np.median(nums_pixels)
 
         num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
 
@@ -138,6 +164,14 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
             "capsule_diameter": Result(capsule_diameter, "um"),
             "capsule_volume": Result(capsule_volume, "um^3"),
             "median_num_pixels": Result(median_num_pixels, "pixels"),
+            "num_particles_in_number": Result(
+                num_particles_in_number,
+                "particles",
+            ),
+            "particle_concentration_in_number": Result(
+                particle_concentration_in_number,
+                "particles/um^3",
+            ),
             "num_particles_in_volume": Result(
                 num_particles_in_volume,
                 "particles",
@@ -151,6 +185,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
         }
 
         capsules_records.append(capsule_record)
+        n_iter += 1
 
     # fmt: off
     capsules_records_values = [
@@ -165,7 +200,7 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
 
     # fmt: off
     df_capsules_records["pectin_exp_concs_norm"] = (
-        df_capsules_records.particle_concentration_in_volume 
+        df_capsules_records.particle_concentration_in_volume
         / df_capsules_records.c_0
     )
     # fmt: on
@@ -189,29 +224,10 @@ def print_capsule_records(records_lst: list[ResultRecord]):
     # * plot pectin concentration in capsule against capsule radius
 
 
-def plot_save_capsule_stats() -> None:
-    datapath, dirpath, configpath = check_config(askopenfilename())
-    (
-        capsules_records,
-        df_capsules_records,
-        # capsules_processing_results,
-    ) = measure_capsules(datapath)
-
-    print_capsule_records(capsules_records)
-    save_records_path = save_records(
-        records_lst=capsules_records,
-        datapath=datapath,
-        suffix="capsule_records",
-    )
-    save_records_path_csv = df_to_csv(
-        df_records=df_capsules_records,
-        datapath=datapath,
-        suffix="capsule_records",
-    )
-    print(
-        f'\nCapsule measurements results saved at \n"{save_records_path}"'
-        f'\n and at "\n{save_records_path_csv}".'
-    )
+def plot_save_capsules_stats(
+    datapath: str | Path,
+    df_capsules_records: pd.DataFrame,
+) -> None:
 
     hist, kde = capsule_distrib_kde(df_records=df_capsules_records)
 
@@ -231,16 +247,35 @@ def plot_save_capsule_stats() -> None:
     scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
 
     plt.show()
-    return (
-        capsules_records,
-        df_capsules_records,
-        # capsules_processing_results,
-    )
 
 
-if __name__ == "__main__":
+def main() -> None:
+    datapath, *_ = check_config(askopenfilename())
     (
         capsules_records,
         df_capsules_records,
         # capsules_processing_results,
-    ) = plot_save_capsule_stats()
+    ) = measure_capsules(datapath)
+
+    print_capsule_records(capsules_records)
+
+    plt.show()
+
+    save_records_path = save_records(
+        records_lst=capsules_records,
+        datapath=datapath,
+        suffix="capsule_records",
+    )
+    save_records_path_csv = df_to_csv(
+        df_records=df_capsules_records,
+        datapath=datapath,
+        suffix="capsule_records",
+    )
+    print(
+        f'\nCapsule measurements results saved at \n"{save_records_path}"'
+        f'\n and at "\n{save_records_path_csv}".'
+    )
+
+
+if __name__ == "__main__":
+    main()
