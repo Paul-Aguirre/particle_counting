@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Generator, Sequence
 from tkinter.filedialog import askopenfilenames
 from typing import NamedTuple
+import warnings
 
 import numpy as np
 from nd2reader import ND2Reader
@@ -174,6 +175,7 @@ def initialize_config(filename: Path | str, metadata: dict) -> None:
 def check_config(
     datapath: str | Path,
     make_pause: bool = False,
+    show_warning: bool = False,
 ) -> tuple[Path, Path, Path]:
     """Given a datafile, checks that its associated directory and
     configuration TOML file exist and creates them otherwise.
@@ -204,6 +206,11 @@ def check_config(
         metadata = get_metadata(datapath)
         initialize_config(configpath, metadata)
         print(f"Created file '{configpath}'.")
+        if show_warning:
+            warnings.warn(
+                "You might want to edit the configuration file before"
+                "you run further analysis on it.",
+            )
         if make_pause:
             print("Please edit the configuration file.")
             input("Press Enter to continue.")
@@ -224,6 +231,7 @@ def prepare_datafile(file: str | Path | Sequence[str | Path]) -> None:
     else:
         for elt in file:
             check_config(elt, make_pause=True)
+    print("Configuration completed.")
 
 
 def get_save_path(datapath: str | Path, suffix: str, ext: str) -> Path:
@@ -316,7 +324,11 @@ def df_to_csv(
     return save_path
 
 
-if __name__ == "__main__":
+def main() -> None:
     # allows to prepares a list of selected files for analysis
     datafiles = askopenfilenames(title="Select the datafile to prepare")
     prepare_datafile(datafiles)
+
+
+if __name__ == "__main__":
+    main()
