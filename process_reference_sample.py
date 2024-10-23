@@ -160,6 +160,82 @@ def process_reference_sample(
     return metadata, results, ref_results, histograms, plots
 
 
+def test_threshold_sensitivity(
+    datapath: str | Path,
+    threshold_variation: float = 0.1,
+) -> None:
+    print(f"Analysing '{str(datapath)}'")
+
+    # * Checking and loading configuration
+    datapath, dirpath, configpath = check_config(datapath)
+
+    with open(configpath, "rb") as f:
+        config = tomllib.load(f)
+
+    # * Loading image stack
+    image_stack, metadata = load_image_stack(
+        path=datapath,
+        zstart=config["zstart"],
+        zstop=config["zstop"],
+        zstep=config["zstep"],
+    )
+    total_volume = compute_total_volume(metadata=metadata)
+    threshold: int = config["threshold"]
+    thresholds: list = [
+        round(threshold - threshold_variation * threshold),
+        threshold,
+        round(threshold + threshold_variation * threshold),
+    ]
+    for thresh in thresholds:
+        results = process_stack(
+            image_stack=image_stack,
+            metadata=metadata,
+            threshold=thresh,
+            threshold_by_image=config.get("threshold_by_image", False),
+            morph_open=True,
+            particle_diameter_um=config["particle_size_microns"],
+            bboxes=False,
+        )
+        (
+            num_regions,
+            particle_concentration_in_number,
+        ) = compute_particle_concentration_in_number(
+            processing_results=results,
+            total_volume=total_volume,
+        )
+        (
+            median_num_pixels,
+            num_particles_in_volume,
+            particle_concentration_in_volume,
+        ) = compute_particle_concentration_in_volume(
+            processing_results=results,
+            total_volume=total_volume,
+        )
+        ref_results = {
+            "threshold_value": Result(thresh, ""),
+            "total_volume": Result(total_volume, "um^3"),
+            "num_particles_counted": Result(num_regions, "particles"),
+            "num_particle_concentration": Result(
+                value=particle_concentration_in_number,
+                unit="particles/um^3",
+            ),
+            "vol_particles_counted": Result(
+                value=num_particles_in_volume,
+                unit="particles",
+            ),
+            "vol_particle_concentration": Result(
+                value=particle_concentration_in_volume,
+                unit="particles/um^3",
+            ),
+            "median_num_pixels": Result(median_num_pixels, "pixels"),  # ?
+        }
+        print("")
+        for key, value in ref_results.items():
+            line_title = key.replace("_", " ").capitalize()
+            print(f"{line_title}: {value.value:.4e} {value.unit}")
+        print("")
+
+
 def print_reference_results(datapath: Path, results: dict):
     print(f"File: {datapath.name}")
     print(
