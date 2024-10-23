@@ -2,8 +2,11 @@
 function from the process_stack.py module.
 """
 
+from pathlib import Path
 import numpy as np
 from skimage import filters, measure, morphology, draw
+
+from nd2reader import ND2Reader
 
 # from memory_profiler import profile
 
@@ -13,7 +16,7 @@ from plane import Plane, Region
 # @profile
 def threshold_stack(
     image_stack: np.ndarray,
-    thresh: int | None = None,
+    threshold: int | None = None,
 ) -> tuple[int, np.ndarray]:
     """Returns an image stack thresholded either by the provided thresh
     value or by the one determined with Otsu's method.
@@ -28,10 +31,41 @@ def threshold_stack(
         tuple[int, np.ndarray]: The threshold value and the binary image
             stack resulting from the thresholding.
     """
-    if not thresh:
-        thresh = filters.threshold_otsu(image_stack)
-    processed_stack = image_stack > thresh
-    return thresh, processed_stack
+    if not threshold:
+        threshold = filters.threshold_otsu(image_stack)
+    processed_stack = image_stack > threshold
+    return threshold, processed_stack
+
+
+def threshold_images_in_stack(
+    image_stack: np.ndarray,
+) -> tuple[list[int], np.ndarray]:
+    """Calculates and applies the threshold for and to an image stack,
+    image by image.
+
+    Args:
+        image_stack (np.ndarray): Image stack to be thresholded.
+
+    Returns:
+        tuple[list[int], np.ndarray]: list of the thresholds, thresholded stack.
+            The thresholds are aranged in ascending z index with respect
+            to the images.
+    """
+    thresholds: list = []
+    processed_stack: np.ndarray = np.zeros(image_stack.shape, dtype=bool)
+    for z in range(image_stack.shape[0]):
+        thresholds.append(filters.threshold_otsu(image_stack[z]))
+        processed_stack[z] = image_stack[z] > thresholds[-1]
+    return thresholds, processed_stack
+
+
+def threshold_images_in_file(datapath: str | Path) -> list[int]:
+    # thougth of for memory economy.
+    thresholds: list = []
+    with ND2Reader(str(datapath)) as images:
+        for image in images:
+            thresholds.append(filters.threshold_otsu(image))
+    return thresholds
 
 
 # @profile

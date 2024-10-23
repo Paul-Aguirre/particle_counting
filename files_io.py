@@ -161,6 +161,7 @@ def initialize_config(filename: Path | str, metadata: dict) -> None:
         "zstart": metadata["z_levels"].start,
         "zstop": metadata["z_levels"].stop,
         "zstep": 1,
+        "threshod_by_image": False,
         "particle_size_microns": 1,  # defaults to 1 µm
         "particle_concentration": 1e-4,  # in particles/µm^3
         "pectin_concentration": 40,  # in g/L

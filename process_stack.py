@@ -10,6 +10,7 @@ from skimage import measure
 
 from plane import Plane
 from process_stack_utils import (
+    threshold_images_in_stack,
     threshold_stack,
     morphological_opening,
     # measure_particles,
@@ -26,6 +27,7 @@ def process_stack(
     results: dict | None = None,
     binary: bool = False,
     threshold: int | None = None,
+    threshold_by_image: bool = False,
     morph_open: bool = False,
     particle_diameter_um: float | None = None,  # in microns
     scale_props: bool = False,
@@ -140,13 +142,17 @@ def process_stack(
     # * Isolating the particles by thresholding
     if not binary:
         if threshold:
-            thresh, processed_stack = threshold_stack(
+            threshold, processed_stack = threshold_stack(
                 image_stack=image_stack,
-                thresh=threshold,
+                threshold=threshold,
+            )
+        elif threshold_by_image:
+            threshold, processed_stack = threshold_images_in_stack(
+                image_stack=image_stack,
             )
         else:
-            thresh, processed_stack = threshold_stack(image_stack)
-        results.update(threshold=thresh, binary=processed_stack)
+            threshold, processed_stack = threshold_stack(image_stack)
+        results.update(threshold=threshold, binary=processed_stack)
     else:
         processed_stack = image_stack
 
