@@ -90,7 +90,8 @@ def process_reference_sample(
             metadata=metadata,
             threshold=config.get("threshold"),  # to avoid recomputing it
             threshold_by_image=config.get("threshold_by_image", False),
-            morph_open=True,
+            morph_open=False,
+            # morph_open=True,
             particle_diameter_um=config["particle_size_microns"],
             bboxes=True,
             full_bboxes=False,
@@ -101,7 +102,8 @@ def process_reference_sample(
             metadata=metadata,
             threshold=config.get("threshold"),  # to avoid recomputing it
             threshold_by_image=config.get("threshold_by_image", False),
-            morph_open=True,
+            morph_open=False,
+            # morph_open=True,
             particle_diameter_um=config["particle_size_microns"],
             bboxes=False,
         )

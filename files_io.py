@@ -19,6 +19,7 @@ The supported file type are the following:
 """
 
 from pathlib import Path
+import tomllib
 from typing import Generator, Sequence
 from tkinter.filedialog import askopenfilenames
 from typing import NamedTuple
@@ -324,10 +325,77 @@ def df_to_csv(
     return save_path
 
 
+def collect_results_from_csvs(
+    datafiles: list[str | Path],
+    suffix: str,
+) -> pd.DataFrame:
+    results_files: list[Path] = [
+        get_save_path(datafile, suffix, "csv") for datafile in datafiles
+    ]
+    configs: list[dict] = []
+    metadata_list: list[dict] = []
+    for datafile in datafiles:
+        *_, configpath = check_config(datapath=datafile)
+        with open(configpath, "rb") as f:
+            configs.append(tomllib.load(f))
+
+        selected_metadata = {
+            k: v
+            for k, v in get_metadata(datafile).items()
+            if k
+            in [
+                "pixel_microns",
+                "width",
+                "height",
+                "z_levels",
+                "z_coordinates",
+            ]
+        }
+        selected_metadata["zstep_microns"] = float(
+            np.median(np.diff(np.array(selected_metadata.pop("z_coordinates"))))
+        )
+        # fmt: off
+        selected_metadata["num_steps"] = (
+            selected_metadata["z_levels"].stop
+            - selected_metadata["z_levels"].start
+        )
+        # fmt: on
+        del selected_metadata["z_levels"]
+        metadata_list.append(selected_metadata)
+
+    dfs: list[pd.DataFrame] = [
+        pd.concat(
+            [
+                pd.read_csv(results_file, header=0, index_col=0),
+                pd.DataFrame.from_records(config),
+                pd.DataFrame.from_records([metadata]),
+            ],
+            axis=1,
+        )
+        for (
+            results_file,
+            config,
+            metadata,
+        ) in zip(
+            results_files,
+            configs,
+            metadata_list,
+        )
+    ]
+    df_results = dfs[0]
+    for df in dfs[1:]:
+        df_results = pd.concat([df_results, df])
+    df_results.reset_index(inplace=True, drop=True)
+
+    return df_results
+
+
 def main() -> None:
     # allows to prepares a list of selected files for analysis
     datafiles = askopenfilenames(title="Select the datafile to prepare")
-    prepare_datafile(datafiles)
+    # prepare_datafile(datafiles)
+    df_results = collect_results_from_csvs(datafiles, "capsule_records")
+    return df_results
 
 
 if __name__ == "__main__":
