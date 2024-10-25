@@ -20,13 +20,14 @@ The supported file type are the following:
 
 from pathlib import Path
 import tomllib
-from typing import Generator, Sequence
+from typing import Generator, Sequence, Literal
 from tkinter.filedialog import askopenfilenames
 from typing import NamedTuple
 import warnings
 
 import numpy as np
 from nd2reader import ND2Reader
+import nd2
 import pandas as pd
 import toml
 
@@ -53,6 +54,7 @@ def load_image_stack(
     zstart: int = 0,
     zstop: int | None = None,
     zstep: int = 1,
+    reader: Literal["nd2reader", "nd2"] = None,
 ) -> tuple[np.ndarray, dict]:
     """Loads the data and metadata from an ND2 file. Optionnaly only
     within specifyied selection boundaries, if specifyied, the metadata
@@ -85,13 +87,25 @@ def load_image_stack(
             parameters.
     """
 
-    with ND2Reader(str(path)) as images:
+    if reader is None or reader == "nd2reader":
+        with ND2Reader(str(path)) as images:
+            # fmt: off
+            image_stack = np.array([
+                frame for frame in images[zstart:zstop:zstep]
+                ])
+            # fmt: on
+            metadata = images.metadata
+
+    elif reader == "nd2":
+        image_stack = nd2.imread(path)[zstart:zstop:zstep]
+        with ND2Reader(str(path)) as images:
+            metadata = images.metadata
+
+    else:
         # fmt: off
-        image_stack = np.array([
-            frame for frame in images[zstart:zstop:zstep]
-            ])
+        raise ValueError("`reader` argument should have values in "
+                         "['nd2reader', 'nd2']")
         # fmt: on
-        metadata = images.metadata
 
     image_stack = image_stack[:, ystart:ystop, xstart:xstop]
     if xstop:
@@ -393,9 +407,9 @@ def collect_results_from_csvs(
 def main() -> None:
     # allows to prepares a list of selected files for analysis
     datafiles = askopenfilenames(title="Select the datafile to prepare")
-    # prepare_datafile(datafiles)
-    df_results = collect_results_from_csvs(datafiles, "capsule_records")
-    return df_results
+    prepare_datafile(datafiles)
+    # df_results = collect_results_from_csvs(datafiles, "capsule_records")
+    # return df_results
 
 
 if __name__ == "__main__":
