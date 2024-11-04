@@ -19,6 +19,7 @@ The supported file type are the following:
 """
 
 from pathlib import Path
+from pprint import pprint
 import tomllib
 from typing import Generator, Sequence, Literal
 from tkinter.filedialog import askopenfilenames
@@ -130,6 +131,7 @@ def load_image_stack(
 def get_selection_stack(
     config: dict,
     datapath: str | Path,
+    reader: Literal["nd2reader", "nd2"] = None,
 ) -> Generator[tuple[np.ndarray, dict], None, None]:
     """Iterator that yields substacks one by one. Substacks are selected
     using a list contained in the configuration file associted
@@ -154,14 +156,47 @@ def get_selection_stack(
             zstart=config["zstart"],
             zstop=config["zstop"],
             zstep=config["zstep"],
+            reader=reader,
         )
         yield image_stack, metadata
 
 
-def get_metadata(path: str | Path):
+def get_metadata(path: str | Path) -> dict:
     with ND2Reader(str(path)) as images:
         metadata: dict = images.metadata
     return metadata
+
+
+def pprint_metadata(path: Path | str) -> None:
+    metadata = get_metadata(path)
+    metadata["z_levels"] = metadata["z_levels"].stop
+    metadata["zstep_microns"] = np.mean(
+        np.diff(
+            np.array(
+                metadata["z_coordinates"],
+            )
+        )
+    )
+    match metadata["pixel_microns"]:
+        case 0.325:
+            metadata["objective"] = "20x"
+        case _:
+            metadata["objective"] = "not 20x"
+
+    not_printed_keys: list[str] = [
+        "fields_of_view",
+        "frames",
+        "z_coordinates",
+        "total_images_per_channel",
+        "channels",
+        "num_frames",
+        "experiment",
+        "events",
+    ]
+    for key in not_printed_keys:
+        del metadata[key]
+
+    pprint(metadata)
 
 
 def initialize_config(filename: Path | str, metadata: dict) -> None:
