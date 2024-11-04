@@ -1,6 +1,8 @@
 import tomllib
 from pathlib import Path
 from tkinter.filedialog import askopenfilename
+import argparse
+from typing import Literal
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -28,7 +30,10 @@ from statistics_plots import (
 
 
 # @profile
-def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
+def measure_capsules(
+    datapath: str | Path,
+    reader: Literal["nd2reader", "nd2"],
+) -> list[ResultRecord]:
 
     print(f"Analysing '{str(datapath)}'.")
 
@@ -45,7 +50,11 @@ def measure_capsules(datapath: str | Path) -> list[ResultRecord]:
     # capsules_processing_results = []
     results: dict = {}
     n_iter: int = 1
-    for substack, metadata in get_selection_stack(config=config, datapath=datapath):
+    for substack, metadata in get_selection_stack(
+        config=config,
+        datapath=datapath,
+        reader=reader,
+    ):
 
         # * applying process stack to each substack
         process_stack(
@@ -250,12 +259,36 @@ def plot_save_capsules_stats(
 
 
 def main() -> None:
-    datapath, *_ = check_config(askopenfilename())
+    parser = argparse.ArgumentParser(prog="measure_capsules")
+    parser.add_argument(
+        "-d",
+        "--datapath",
+        action="store",
+        required=False,
+        default=None,
+        type=Path,
+        help="The path to the datafile to analyse.",
+    )
+    parser.add_argument(
+        "-r",
+        "--reader",
+        action="store",
+        required=False,
+        choices=["nd2", "nd2reader"],
+        default="nd2reader",
+        help="The reader to use for openning ND2 files. 'nd2'"
+        " option is necessarry for 8-bit files.",
+    )
+    args = parser.parse_args()
+    if args.datapath is None:
+        args.datapath = Path(askopenfilename())
+
+    datapath, *_ = check_config(args.datapath)
     (
         capsules_records,
         df_capsules_records,
         # capsules_processing_results,
-    ) = measure_capsules(datapath)
+    ) = measure_capsules(datapath=datapath, reader=args.reader)
 
     print_capsule_records(capsules_records)
 
