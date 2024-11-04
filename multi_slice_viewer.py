@@ -23,6 +23,7 @@ from pathlib import Path
 from functools import partial
 from typing import Callable
 from enum import Enum
+import argparse
 
 import matplotlib.axes
 import numpy as np
@@ -636,15 +637,52 @@ def main():
     Raises:
         ValueError: In case the selected file is not of the right type.
     """
-    path = Path(askopenfilename())
-    if path.suffix == ".nd2":
-        image_stack, _ = load_image_stack(path=str(path))
-    elif path.suffix == ".npy":
-        image_stack = np.load(path)
+    parser = argparse.ArgumentParser(prog="multi_slice_viewer")
+    parser.add_argument(
+        "-d",
+        "--datapath",
+        action="store",
+        required=False,
+        default=None,
+        type=Path,
+        help="The path to the datafile to display.",
+    )
+    parser.add_argument(
+        "-r",
+        "--reader",
+        action="store",
+        required=False,
+        choices=["nd2", "nd2reader"],
+        default="nd2reader",
+        help="The reader to use for openning ND2 files. 'nd2'"
+        " option is necessarry for 8-bit files.",
+    )
+    # fmt: off
+    parser.add_argument(
+        "--lognorm",
+        action="store_true",
+        help="Weither to use a logarithmic norm or not for "
+        "the displayed images.",
+    )
+    # fmt: on
+    args = parser.parse_args()
+
+    if args.datapath is None:
+        args.datapath = Path(askopenfilename())
+    if args.datapath.suffix == ".nd2":
+        image_stack, _ = load_image_stack(
+            path=str(args.datapath),
+            reader=args.reader,
+        )
+    elif args.datapath.suffix == ".npy":
+        image_stack = np.load(args.datapath)
     else:
         raise ValueError('File must be valid "NPY" or "ND2" format.')
-    print(f"Openning '{path.name}'.")
-    viewer = MultiSliceViewer(lognorm=True, datafile=path)
+    print(f"Openning '{args.datapath.name}'.")
+    viewer = MultiSliceViewer(
+        lognorm=args.lognorm,
+        datafile=args.datapath,
+    )
     viewer.plot(volume=image_stack)
     viewer.show()
 
