@@ -2,7 +2,6 @@
 /data/*
 *test*.py
 *.nd2
-*.toml
 *.npy
 *.pickle
 *.pptx
