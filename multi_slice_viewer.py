@@ -265,6 +265,28 @@ class MultiSliceViewer:
         """
         np.save(file, self.ax.volume)
 
+    def show_selections(self):
+        *_, configpath = check_config(self.datafile)
+        with open(configpath, "r") as f:
+            config = toml.load(f)
+        if config["selections"] == []:
+            print("No selection to show.")
+        else:
+            self._show_rectangle_from_coords_list(
+                list=config["selections"],
+                fill=False,
+                color="C2",
+                zorder=1,
+            )
+
+    def show_patches(self, patches):
+        self._show_rectangle_from_coords_list(
+            list=patches,
+            fill=True,
+            color="C3",
+            zorder=1,
+        )
+
     @staticmethod
     def _remove_keymap_conflicts(new_keys_set: set):
         """Inspects pyplot's default rcParams for key binding, compare
@@ -401,6 +423,29 @@ class MultiSliceViewer:
         ax.volume = volume
         ax.images[0].set_array(ax.volume[ax.index])
 
+    def _patch_xy(self, selection: dict) -> None:
+        xmin, xmax, ymin, ymax = self._select_rectangle()
+        if "patches" not in selection.keys():
+            selection["patches"] = []
+        selection["patches"].append(
+            {
+                "xstart": xmin,
+                "xstop": xmax,
+                "ystart": ymin,
+                "ystop": ymax,
+            }
+        )
+        self.ax.add_patch(
+            plt.Rectangle(
+                (xmin, ymin),
+                width=xmax - xmin,
+                height=ymax - ymin,
+                color="C3",
+                zorder=0.9,
+                fill=True,
+            )
+        )
+
     def _save_volume(self) -> None:
         """Asks the user if they want to save the current image stack
         (taking cropping into account), and saves it as an NPY file in
@@ -451,6 +496,7 @@ class MultiSliceViewer:
             "xstop": int(xmax),
             "ystart": int(ymin),
             "ystop": int(ymax),
+            "zslice": self.ax.index,
         }
 
         *_, configpath = self._check_datafile_config()
@@ -475,6 +521,30 @@ class MultiSliceViewer:
                 fill=False,
             )
         )
+
+    def _show_rectangle_from_coords_list(
+        self,
+        list: list,
+        fill: bool = False,
+        color: str | tuple = "C0",
+        zorder: float | int = 1,
+    ) -> None:
+        for coords in list:
+            xmin = coords["xstart"]
+            xmax = coords["xstop"]
+            ymin = coords["ystart"]
+            ymax = coords["ystop"]
+
+            self.ax.add_patch(
+                plt.Rectangle(
+                    (xmin, ymin),
+                    width=xmax - xmin,
+                    height=ymax - ymin,
+                    color=color,
+                    zorder=zorder,
+                    fill=fill,
+                )
+            )
 
 
 class MultiSliceViewerDuo(MultiSliceViewer):
@@ -684,6 +754,7 @@ def main():
         datafile=args.datapath,
     )
     viewer.plot(volume=image_stack)
+    viewer.show_selections()
     viewer.show()
 
 
