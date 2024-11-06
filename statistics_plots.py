@@ -128,15 +128,23 @@ def particle_distributions(
     # Defaults to "props".
     # ------------------------------------------------------------------
 
+    # fmt: off
+    data_is_3D = (
+        results["props"][0].image.ndim == 3
+        and results["props"][0].image.shape[0] == 3
+    )
+    # fmt: on
     x = []
     y = []
-    z = []
+    if data_is_3D:
+        z = []
     areas = []
     nums_pixels = []
     diameters = []
 
     for prop in results["props"]:
-        z.append(prop.image.shape[0])
+        if data_is_3D:
+            z.append(prop.image.shape[0])
         y.append(prop.image.shape[1])
         x.append(prop.image.shape[2])
         areas.append(prop.area)
@@ -146,9 +154,10 @@ def particle_distributions(
     # normalizing x, y and z for readability
     x = np.array(x, dtype=np.float32) * metadata["pixel_microns"]
     y = np.array(y, dtype=np.float32) * metadata["pixel_microns"]
-    z = np.array(z, dtype=np.float32) * np.abs(
-        np.mean(np.diff(metadata["z_coordinates"]))
-    )
+    if data_is_3D:
+        z = np.array(z, dtype=np.float32) * np.abs(
+            np.mean(np.diff(metadata["z_coordinates"]))
+        )
     areas = np.array(areas, dtype=np.float32)
     nums_pixels = np.array(nums_pixels, dtype=np.float32)
     diameters = np.array(diameters, dtype=np.float32)
@@ -178,7 +187,11 @@ def particle_distributions(
     axs1[1, 2].boxplot(diameters, tick_labels=["diameter"], **boxplot_config)
     fig1.set_layout_engine(layout="tight")
 
-    fig2, axs2 = plt.subplots(2, 3, figsize=figsize)
+    if data_is_3D:
+        fig2, axs2 = plt.subplots(2, 3, figsize=figsize)
+    else:
+        figsize = (7.2, 7.2)
+        fig2, axs2 = plt.subplots(2, 2, figsize=figsize)
 
     cum_x, bins_xy, _ = hist_freq_cum(axs2[0, 0], x, bins_xy, "x")
     axs2[0, 0].set_ylabel("count")
@@ -186,9 +199,10 @@ def particle_distributions(
     cum_y, bins_xy, _ = hist_freq_cum(axs2[0, 1], y, bins_xy, "y")
     axs2[0, 1].set_xlabel("Size in microns")
 
-    cum_z, bins_z, secax_z = hist_freq_cum(axs2[0, 2], z, bins_z, "z")
-    secax_z.set_ylabel("cumulated frequencies")
-    axs2[1, 2].boxplot(z, tick_labels=["z"], **boxplot_config)
+    if data_is_3D:
+        cum_z, bins_z, secax_z = hist_freq_cum(axs2[0, 2], z, bins_z, "z")
+        secax_z.set_ylabel("cumulated frequencies")
+        axs2[1, 2].boxplot(z, tick_labels=["z"], **boxplot_config)
 
     # plotting x and y boxplots together because their values are close
     gs = axs2[1, 0].get_gridspec()
@@ -199,14 +213,23 @@ def particle_distributions(
     axs2boxplot_xy.set_ylabel("Size in microns")
     fig2.set_layout_engine(layout="tight")
 
-    histograms = {
-        "num_pixels": HistogramData(nums_pixels, cum_num_pixels, bins_pixels),
-        "area": HistogramData(areas, cum_area, bins_area),
-        "diameter": HistogramData(diameters, cum_diameter, bins_diameter),
-        "x": HistogramData(x, cum_x, bins_xy),
-        "y": HistogramData(y, cum_y, bins_xy),
-        "z": HistogramData(z, cum_z, bins_z),
-    }
+    if data_is_3D:
+        histograms = {
+            "num_pixels": HistogramData(nums_pixels, cum_num_pixels, bins_pixels),
+            "area": HistogramData(areas, cum_area, bins_area),
+            "diameter": HistogramData(diameters, cum_diameter, bins_diameter),
+            "x": HistogramData(x, cum_x, bins_xy),
+            "y": HistogramData(y, cum_y, bins_xy),
+            "z": HistogramData(z, cum_z, bins_z),
+        }
+    else:
+        histograms = {
+            "num_pixels": HistogramData(nums_pixels, cum_num_pixels, bins_pixels),
+            "area": HistogramData(areas, cum_area, bins_area),
+            "diameter": HistogramData(diameters, cum_diameter, bins_diameter),
+            "x": HistogramData(x, cum_x, bins_xy),
+            "y": HistogramData(y, cum_y, bins_xy),
+        }
 
     plots = {
         "pix_area_diam": DistributionPlot(fig1, axs1),
@@ -215,30 +238,53 @@ def particle_distributions(
 
     # plt.show()
     if verbose:
-        binss = [
-            bins_pixels,
-            bins_area,
-            bins_diameter,
-            bins_xy,
-            bins_xy,
-            bins_z,
-        ]
-        cum_hists = [
-            cum_num_pixels,
-            cum_area,
-            cum_diameter,
-            cum_x,
-            cum_y,
-            cum_z,
-        ]
-        measurement_strs = [
-            "num_pixels",
-            "area",
-            "diameter",
-            "x",
-            "y",
-            "z",
-        ]
+        if data_is_3D:
+            binss = [
+                bins_pixels,
+                bins_area,
+                bins_diameter,
+                bins_xy,
+                bins_xy,
+                bins_z,
+            ]
+            cum_hists = [
+                cum_num_pixels,
+                cum_area,
+                cum_diameter,
+                cum_x,
+                cum_y,
+                cum_z,
+            ]
+            measurement_strs = [
+                "num_pixels",
+                "area",
+                "diameter",
+                "x",
+                "y",
+                "z",
+            ]
+        else:
+            binss = [
+                bins_pixels,
+                bins_area,
+                bins_diameter,
+                bins_xy,
+                bins_xy,
+            ]
+            cum_hists = [
+                cum_num_pixels,
+                cum_area,
+                cum_diameter,
+                cum_x,
+                cum_y,
+            ]
+            measurement_strs = [
+                "num_pixels",
+                "area",
+                "diameter",
+                "x",
+                "y",
+            ]
         for bins, cum_hist, measurement_str in zip(
             binss,
             cum_hists,
