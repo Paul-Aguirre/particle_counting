@@ -236,23 +236,39 @@ def process_capsule_hull(
         tuple: An image stack of the computed convex hull and its region
             properties.
     """
-    filtered_hull_slices = get_filtered_stack(
-        image_stack=processed_stack,
-        regions=props,
-        threshold=trac_nb_thresh,
-        plane=plane,
-    )
-    hull = morphology.convex_hull_image(filtered_hull_slices)
+    assert processed_stack.ndim == 3
+    data_is_2D = processed_stack.shape[0] == 1
+    if data_is_2D:
+        processed_stack = processed_stack.reshape(processed_stack.shape[1:])
+        hull = morphology.convex_hull_image(processed_stack)
+    else:
+        filtered_hull_slices = get_filtered_stack(
+            image_stack=processed_stack,
+            regions=props,
+            threshold=trac_nb_thresh,
+            plane=plane,
+        )
+        hull = morphology.convex_hull_image(filtered_hull_slices)
+
     labeled_hull = measure.label(hull).astype(np.uint8)
     # uint8 is enough here because only 1 region is present
-    hull_props = measure.regionprops(
-        labeled_hull,
-        spacing=(
-            np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
-            metadata["pixel_microns"],  # y
-            metadata["pixel_microns"],  # x
-        ),
-    )
+    if data_is_2D:
+        hull_props = measure.regionprops(
+            labeled_hull,
+            spacing=(
+                metadata["pixel_microns"],  # y
+                metadata["pixel_microns"],  # x
+            ),
+        )
+    else:
+        hull_props = measure.regionprops(
+            labeled_hull,
+            spacing=(
+                np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
+                metadata["pixel_microns"],  # y
+                metadata["pixel_microns"],  # x
+            ),
+        )
     return hull, hull_props
 
 
