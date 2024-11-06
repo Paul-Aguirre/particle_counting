@@ -161,6 +161,25 @@ def get_selection_stack(
         yield image_stack, metadata
 
 
+def get_selection_slices(
+    config: dict,
+    datapath: Path | str,
+    reader: Literal["nd2reader", "nd2"] = None,
+) -> Generator[tuple[np.ndarray, dict], None, None]:
+    for selection in config["selections"]:
+        image, metadata = load_image_stack(
+            path=datapath,
+            xstart=selection["xstart"],
+            xstop=selection["xstop"],
+            ystart=selection["ystart"],
+            ystop=selection["ystop"],
+            zstart=selection["zslice"],
+            zstop=selection["zslice"] + 1,
+            reader=reader,
+        )
+        yield image, metadata
+
+
 def get_metadata(path: str | Path) -> dict:
     with ND2Reader(str(path)) as images:
         metadata: dict = images.metadata
@@ -195,7 +214,7 @@ def pprint_metadata(path: Path | str) -> None:
     ]
     for key in not_printed_keys:
         del metadata[key]
-
+    print(f"Metadata of file '{path}':")
     pprint(metadata)
 
 
