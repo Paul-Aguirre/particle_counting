@@ -131,7 +131,7 @@ def particle_distributions(
     # fmt: off
     data_is_3D = (
         results["props"][0].image.ndim == 3
-        and results["props"][0].image.shape[0] == 3
+        and results["props"][0].image.shape[0] > 1
     )
     # fmt: on
     x = []
