@@ -55,6 +55,42 @@ def measure_capsule_slices(
             use_centroids=True,
             trac_nb_thresh=0,
         )
+
+        # * Plotting processing steps:
+        # - initial image
+        fig_initial, ax_initial = plt.subplots()
+        ax_initial.imshow(
+            image,
+            cmap="grey",
+            norm="log",
+        )
+        fig_initial.savefig(
+            fname=dirpath / f"{datapath.stem}_initial_middle_no-{n_iter}.png",
+            format="png",
+        )
+
+        # - binary
+        fig_binary, ax_binary = plt.subplots()
+        ax_binary.imshow(
+            results["binary"],
+            cmap="grey",
+        )
+        fig_binary.savefig(
+            fname=dirpath / f"{datapath.stem}_binary_middle_no-{n_iter}.png",
+            format="png",
+        )
+
+        # - initial + convex hull
+        ax_initial.imshow(
+            results["hull"],
+            cmap="viridis",
+            alpha=0.5,
+        )
+        fig_initial.savefig(
+            fname=dirpath / f"{datapath.stem}_hull_middle_no-{n_iter}.png",
+            format="png",
+        )
+
         # * Plotting particle size distribution
         histograms, plots = particle_distributions(
             results,
