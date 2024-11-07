@@ -21,6 +21,7 @@ from files_io import (
     get_selection_stack,
     save_records,
 )
+from plane import Plane
 from process_stack import process_stack
 from statistics_plots import (
     capsule_distrib_kde,
@@ -33,7 +34,7 @@ from statistics_plots import (
 def measure_capsules(
     datapath: str | Path,
     reader: Literal["nd2reader", "nd2"],
-) -> list[ResultRecord]:
+) -> tuple[list[ResultRecord], pd.DataFrame]:
 
     print(f"Analysing '{str(datapath)}'.")
 
@@ -74,6 +75,52 @@ def measure_capsules(
             with open(configpath, "w") as f:
                 toml.dump(config, f)
         # capsules_processing_results.append(results)
+
+        # * Plotting processing steps:
+        # - initial image
+        fig_initial, ax_initial = plt.subplots()
+        initial_middle = substack[Plane.XY.middle_slice(substack.shape[0])]
+        ax_initial.imshow(
+            initial_middle,
+            cmap="grey",
+            norm="log",
+        )
+        fig_initial.savefig(
+            fname=dirpath / f"{datapath.stem}_initial_middle_no-{n_iter}.png",
+            format="png",
+        )
+
+        # - binary
+        binary_middle = results["binary"][
+            Plane.XY.middle_slice(
+                results["binary"].shape[0],
+            )
+        ]
+        fig_binary, ax_binary = plt.subplots()
+        ax_binary.imshow(
+            binary_middle,
+            cmap="grey",
+        )
+        fig_binary.savefig(
+            fname=dirpath / f"{datapath.stem}_binary_middle_no-{n_iter}.png",
+            format="png",
+        )
+
+        # - initial + convex hull
+        hull_middle = results["hull"][
+            Plane.XY.middle_slice(
+                results["hull"].shape[0],
+            )
+        ]
+        ax_initial.imshow(
+            hull_middle,
+            cmap="viridis",
+            alpha=0.5,
+        )
+        fig_initial.savefig(
+            fname=dirpath / f"{datapath.stem}_hull_middle_no-{n_iter}.png",
+            format="png",
+        )
 
         # * Plotting particle size distribution
         histograms, plots = particle_distributions(
@@ -141,14 +188,6 @@ def measure_capsules(
         )
         del particles_in_hull
 
-        """ # ? Should we only count the volume of tracers inside
-        the hull (current implementation)?
-        Or instead count the volume of tracers which have their centroid
-        in the hull ?
-        Current implementation cuts some capsule volume on hull border
-        thus reducing particle count.
-        """
-
         nums_pixels = np.array(
             [prop.num_pixels for prop in particles_in_hull_results["props"]]
         )
@@ -169,6 +208,7 @@ def measure_capsules(
             / config["particle_concentration"]
         )
 
+        # * Collecting and organising the results
         capsule_record = {
             "capsule_diameter": Result(capsule_diameter, "um"),
             "capsule_volume": Result(capsule_volume, "um^3"),
