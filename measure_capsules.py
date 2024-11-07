@@ -55,6 +55,7 @@ def measure_capsules(
         config=config,
         datapath=datapath,
         reader=reader,
+        use_patches=True,
     ):
 
         # * applying process stack to each substack

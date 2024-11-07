@@ -132,6 +132,7 @@ def get_selection_stack(
     config: dict,
     datapath: str | Path,
     reader: Literal["nd2reader", "nd2"] = None,
+    use_patches: bool = False,
 ) -> Generator[tuple[np.ndarray, dict], None, None]:
     """Iterator that yields substacks one by one. Substacks are selected
     using a list contained in the configuration file associted
@@ -158,6 +159,16 @@ def get_selection_stack(
             zstep=config["zstep"],
             reader=reader,
         )
+        if use_patches:
+            if "patches" in selection.keys():
+                for patch in selection["patches"]:
+                    xmin = patch["xstart"] - selection["xstart"]
+                    xmax = patch["xstop"] - selection["xstart"]
+                    ymin = patch["ystart"] - selection["ystart"]
+                    ymax = patch["ystop"] - selection["ystart"]
+                    image_stack[:, ymin:ymax, xmin:xmax] = 0
+            else:
+                warnings.warn("No patches found. Stack was not patched.")
         yield image_stack, metadata
 
 
@@ -165,6 +176,7 @@ def get_selection_slices(
     config: dict,
     datapath: Path | str,
     reader: Literal["nd2reader", "nd2"] = None,
+    use_patches: bool = False,
 ) -> Generator[tuple[np.ndarray, dict], None, None]:
     for selection in config["selections"]:
         image, metadata = load_image_stack(
@@ -177,6 +189,16 @@ def get_selection_slices(
             zstop=selection["zslice"] + 1,
             reader=reader,
         )
+        if use_patches:
+            if selection["patches"]:
+                for patch in selection["patches"]:
+                    xmin = patch["xstart"] - selection["xstart"]
+                    xmax = patch["xstop"] - selection["xstart"]
+                    ymin = patch["ystart"] - selection["ystart"]
+                    ymax = patch["ystop"] - selection["ystart"]
+                    image[:, ymin:ymax, xmin:xmax] = 0
+            else:
+                warnings.warn("No patches found. Stack was not patched.")
         yield image, metadata
 
 
