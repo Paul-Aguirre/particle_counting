@@ -24,6 +24,7 @@ from functools import partial
 from typing import Callable
 from enum import Enum
 import argparse
+import warnings
 
 import matplotlib.axes
 import numpy as np
@@ -265,8 +266,8 @@ class MultiSliceViewer:
         """
         np.save(file, self.ax.volume)
 
-    def show_selections(self):
-        *_, configpath = check_config(self.datafile)
+    def show_selections(self) -> None:
+        *_, configpath = self._check_datafile_config()
         with open(configpath, "r") as f:
             config = toml.load(f)
         if config["selections"] == []:
@@ -279,13 +280,27 @@ class MultiSliceViewer:
                 zorder=1,
             )
 
-    def show_patches(self, patches):
+    def show_patches(self, patches) -> None:
         self._show_rectangle_from_coords_list(
             list=patches,
             fill=True,
             color="C3",
             zorder=1,
+            alpha=0.5,
         )
+
+    def show_patches_all(self) -> None:
+        *_, configpath = self._check_datafile_config()
+        with open(configpath, "r") as f:
+            config = toml.load(f)
+        if config["selections"] == []:
+            print("No selection to show.")
+        else:
+            for i, selection in enumerate(config["selections"]):
+                if "patches" in selection.keys():
+                    self.show_patches(selection["patches"])
+                else:
+                    print(f"No patches to show in selection no.{i}.")
 
     @staticmethod
     def _remove_keymap_conflicts(new_keys_set: set):
@@ -332,6 +347,7 @@ class MultiSliceViewer:
             "r": self._remove_xy,
             "s": self._save_volume,
             "z": self._select_substack,
+            "p": self._add_patch,
         }
 
     def _process_key(self, event, key_bindings: dict) -> None:
@@ -394,6 +410,18 @@ class MultiSliceViewer:
         ymax = corners[:, 1].max()
         return xmin, xmax, ymin, ymax
 
+    def _choose_selection(self, selections) -> int | Warning:
+        point = np.asarray(plt.ginput(1, timeout=-1)[0]).astype(np.uint16)
+        for i, selection in enumerate(selections):
+            if (
+                selection["xstart"] <= point[0] < selection["xstop"]
+                and selection["ystart"] <= point[1] < selection["ystop"]
+            ):
+                return i
+        return warnings.warn(
+            message=f"No selection containing that point ({point}) was found.",
+        )
+
     @staticmethod
     def _crop_xy(ax: matplotlib.axes.Axes) -> None:  # does not work with bboxes
         """Crops the current image stack given a rectangle selected in
@@ -425,6 +453,13 @@ class MultiSliceViewer:
 
     def _patch_xy(self, selection: dict) -> None:
         xmin, xmax, ymin, ymax = self._select_rectangle()
+
+        # limiting the patch size to the selection boundary:
+        xmin = int(max(xmin, selection["xstart"]))
+        xmax = int(min(xmax, selection["xstop"]))
+        ymin = int(max(ymin, selection["ystart"]))
+        ymax = int(min(ymax, selection["ystop"]))
+
         if "patches" not in selection.keys():
             selection["patches"] = []
         selection["patches"].append(
@@ -445,6 +480,19 @@ class MultiSliceViewer:
                 fill=True,
             )
         )
+
+    def _add_patch(self) -> None:
+        *_, configpath = self._check_datafile_config()
+        with open(configpath, "r") as f:
+            config = toml.load(f)
+        i = self._choose_selection(config["selections"])
+        if isinstance(i, int):
+            selection = config["selections"][i]
+            self._patch_xy(selection)
+            with open(configpath, "w") as f:
+                toml.dump(config, f)
+        elif isinstance(i, Warning):
+            raise i
 
     def _save_volume(self) -> None:
         """Asks the user if they want to save the current image stack
@@ -477,7 +525,8 @@ class MultiSliceViewer:
         if not self.datafile:
             self.datafile = Path(
                 askopenfilename(
-                    title="Choose a datafile",
+                    title="No datafile registered, "
+                    "please choose the correct datafile",
                 )
             )
         return check_config(self.datafile)
@@ -528,6 +577,7 @@ class MultiSliceViewer:
         fill: bool = False,
         color: str | tuple = "C0",
         zorder: float | int = 1,
+        alpha: float = 1.0,
     ) -> None:
         for coords in list:
             xmin = coords["xstart"]
@@ -543,6 +593,7 @@ class MultiSliceViewer:
                     color=color,
                     zorder=zorder,
                     fill=fill,
+                    alpha=alpha,
                 )
             )
 
@@ -735,6 +786,16 @@ def main():
         "the displayed images.",
     )
     # fmt: on
+    parser.add_argument(
+        "--hide_selections",
+        action="store_true",
+        help="Weither to hide the selected areas.",
+    )
+    parser.add_argument(
+        "--show_all_patches",
+        action="store_true",
+        help="Weither to show all patched areas.",
+    )
     args = parser.parse_args()
 
     if args.datapath is None:
@@ -754,7 +815,11 @@ def main():
         datafile=args.datapath,
     )
     viewer.plot(volume=image_stack)
-    viewer.show_selections()
+    show_selections = not args.hide_selections
+    if show_selections:
+        viewer.show_selections()
+    if args.show_all_patches:
+        viewer.show_patches_all()
     viewer.show()
 
 
