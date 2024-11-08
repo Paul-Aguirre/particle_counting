@@ -478,6 +478,7 @@ class MultiSliceViewer:
                 color="C3",
                 zorder=0.9,
                 fill=True,
+                alpha=0.5,
             )
         )
 
