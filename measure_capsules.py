@@ -320,6 +320,11 @@ def main() -> None:
         help="The reader to use for openning ND2 files. 'nd2'"
         " option is necessarry for 8-bit files.",
     )
+    parser.add_argument(
+        "--show_plots",
+        action="store_true",
+        help="Shows the plots in pyplot windows.",
+    )
     args = parser.parse_args()
     if args.datapath is None:
         args.datapath = Path(askopenfilename())
@@ -333,7 +338,8 @@ def main() -> None:
 
     print_capsule_records(capsules_records)
 
-    plt.show()
+    if args.show_plots:
+        plt.show()
 
     save_records_path = save_records(
         records_lst=capsules_records,
