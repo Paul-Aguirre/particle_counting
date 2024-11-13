@@ -35,6 +35,7 @@ def measure_capsule_slices(
     if not config["selections"]:
         raise ValueError("No selected region in the stack.")
 
+    plt.rcParams["figure.max_open_warning"] = 50
     capsules_records: list = []
     results: dict
     n_iter: int = 1
@@ -43,6 +44,7 @@ def measure_capsule_slices(
         config=config,
         datapath=datapath,
         reader=reader,
+        use_patches=True,
     ):
         # * Applying process_stack to each image
         results = process_stack(
@@ -52,7 +54,7 @@ def measure_capsule_slices(
             threshold=config.get("threshold"),
             threshold_by_image=False,
             capsule=True,
-            use_centroids=True,
+            use_centroids=False,
             trac_nb_thresh=0,
         )
 
@@ -60,23 +62,32 @@ def measure_capsule_slices(
         # - initial image
         fig_initial, ax_initial = plt.subplots()
         ax_initial.imshow(
-            image,
+            image.reshape(image.shape[1:]),
             cmap="grey",
             norm="log",
         )
         fig_initial.savefig(
-            fname=dirpath / f"{datapath.stem}_initial_middle_no-{n_iter}.png",
+            fname=dirpath / f"{datapath.stem}_initial_no-{n_iter}.png",
             format="png",
         )
 
         # - binary
         fig_binary, ax_binary = plt.subplots()
         ax_binary.imshow(
-            results["binary"],
+            results["binary"].reshape(results["binary"].shape[1:]),
             cmap="grey",
         )
         fig_binary.savefig(
-            fname=dirpath / f"{datapath.stem}_binary_middle_no-{n_iter}.png",
+            fname=dirpath / f"{datapath.stem}_binary_no-{n_iter}.png",
+            format="png",
+        )
+        ax_initial.imshow(
+            results["binary"].reshape(results["binary"].shape[1:]),
+            cmap="viridis",
+            alpha=0.5,
+        )
+        fig_initial.savefig(
+            fname=dirpath / f"{datapath.stem}_initial_binary_no-{n_iter}.png",
             format="png",
         )
 
@@ -86,10 +97,15 @@ def measure_capsule_slices(
             cmap="viridis",
             alpha=0.5,
         )
+        # fmt: off
         fig_initial.savefig(
-            fname=dirpath / f"{datapath.stem}_hull_middle_no-{n_iter}.png",
+            fname=(
+                dirpath 
+                / f"{datapath.stem}_initial_binary_hull_no-{n_iter}.png"
+            ),
             format="png",
         )
+        # fmt: on
 
         # * Plotting particle size distribution
         histograms, plots = particle_distributions(
