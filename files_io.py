@@ -190,7 +190,7 @@ def get_selection_slices(
             reader=reader,
         )
         if use_patches:
-            if selection["patches"]:
+            if "patches" in selection.keys():
                 for patch in selection["patches"]:
                     xmin = patch["xstart"] - selection["xstart"]
                     xmax = patch["xstop"] - selection["xstart"]
@@ -264,12 +264,14 @@ def initialize_config(filename: Path | str, metadata: dict) -> None:
 
 
 def check_config(
-    datapath: str | Path,
+    path: str | Path,
     make_pause: bool = False,
     show_warning: bool = False,
+    default_suffix: str = ".nd2",
 ) -> tuple[Path, Path, Path]:
-    """Given a datafile, checks that its associated directory and
-    configuration TOML file exist and creates them otherwise.
+    """Given a path, extracts the dataname and from that checks that its
+    associated directory and configuration TOML file exist and creates
+    them otherwise.
     Also returns the three paths; the function is mainly used for that
     purpose in fact.
 
@@ -279,15 +281,33 @@ def check_config(
             of the program to allow the user to edit the configuration
             file. Program execution is resumed when ENTER is pressed
             when in the terminal. Defaults to False.
+        show_warning (bool, optionnal): If True, warns the user to edit
+            the configuration file before starting any further
+            processing.
+        default_suffix (str, optionnal): The default extension appended
+            to the path returned as `datapath` in case the input path
+            is a directory.
 
     Returns:
         tuple[Path, Path, Path]: Paths to the datafile,
             the corresponding directory and configuration file,
             respectively.
     """
-    datapath = Path(datapath)
-    dirpath: Path = datapath.parent / f"{datapath.stem}"
-    configpath: Path = dirpath / f"{datapath.stem}_config.toml"
+    path = Path(path)
+    dataname: str = path.stem
+    suffix: str = path.suffix
+    datapath: Path
+
+    if not path:
+        raise ValueError("No path was provided.")
+
+    if not suffix:
+        suffix = default_suffix
+        datapath = path.parent / f"{dataname}{suffix}"
+    else:
+        datapath = path
+    dirpath: Path = path.parent / f"{dataname}"
+    configpath: Path = dirpath / f"{dataname}_config.toml"
 
     if not dirpath.exists():
         dirpath.mkdir()
@@ -425,7 +445,7 @@ def collect_results_from_csvs(
     configs: list[dict] = []
     metadata_list: list[dict] = []
     for datafile in datafiles:
-        *_, configpath = check_config(datapath=datafile)
+        *_, configpath = check_config(path=datafile)
         with open(configpath, "rb") as f:
             configs.append(tomllib.load(f))
 
