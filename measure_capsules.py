@@ -12,6 +12,11 @@ import toml
 
 # from memory_profiler import profile
 
+from calculations_utils import (
+    compute_particle_concentration_in_number,
+    compute_particle_concentration_in_volume,
+    compute_pectin_concentration,
+)
 from files_io import (
     Result,
     ResultRecord,
@@ -150,8 +155,14 @@ def measure_capsules(
         # (also checked in skimage source code that formula applies to 3D case)
 
         # * compute pectin concentration in number
-        num_particles_in_number = np.float64(len(results["props"]))
-        particle_concentration_in_number = num_particles_in_number / capsule_volume
+        num_particles_in_number, particle_concentration_in_number = (
+            compute_particle_concentration_in_number(
+                processing_results=results,
+                total_volume=capsule_volume,
+            )
+        )
+        # num_particles_in_number = np.float64(len(results["props"]))
+        # particle_concentration_in_number = num_particles_in_number / capsule_volume
 
         # * and compute pectin concentration in capsule volume
         # two methods have been thought of for accessing only the tracers
@@ -189,25 +200,29 @@ def measure_capsules(
         )
         del particles_in_hull
 
-        nums_pixels = np.array(
-            [prop.num_pixels for prop in particles_in_hull_results["props"]]
+        (
+            median_num_pixels,
+            num_particles_in_volume,
+            particle_concentration_in_volume,
+        ) = compute_particle_concentration_in_volume(
+            processing_results=particles_in_hull_results,
+            total_volume=capsule_volume,
         )
-
-        median_num_pixels = np.median(nums_pixels)
-
-        num_particles_in_volume = np.sum(nums_pixels) / median_num_pixels
 
         # fmt: off
-        particle_concentration_in_volume = (
-            num_particles_in_volume / capsule_volume
+        pectin_experimental_concentration_in_number = (
+            compute_pectin_concentration(
+                particle_concentration=particle_concentration_in_number,
+                config=config,
             )
-        # fmt: on
-
-        pectin_experimental_concentration = (
-            particle_concentration_in_volume
-            * config["pectin_concentration"]
-            / config["particle_concentration"]
         )
+        pectin_experimental_concentration_in_volume = (
+            compute_pectin_concentration(
+                particle_concentration=particle_concentration_in_volume,
+                config=config,
+            )
+        )
+        # fmt: on
 
         # * Collecting and organising the results
         capsule_record = {
@@ -229,8 +244,11 @@ def measure_capsules(
             "particle_concentration_in_volume": Result(
                 particle_concentration_in_volume, "particles/um^3"
             ),
-            "pectin_experimental_concentration": Result(
-                pectin_experimental_concentration, "g/L"
+            "pectin_experimental_concentration_in_number": Result(
+                pectin_experimental_concentration_in_number, "g/L"
+            ),
+            "pectin_experimental_concentration_in_volume": Result(
+                pectin_experimental_concentration_in_volume, "g/L"
             ),
         }
 
