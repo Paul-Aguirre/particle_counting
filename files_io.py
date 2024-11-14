@@ -497,12 +497,13 @@ def collect_results_from_csvs(
             axis="columns",
             inplace=True,
         )
-        # fmt: off
-        df_config = (
-            pd.DataFrame.from_records([config])
-            .drop(columns=["calcium_chloride_concentration"])
-        )
-        # fmt: on
+        df_config = pd.DataFrame.from_records([config])
+        if "calcium_chloride_concentration" in df_csv.columns:
+            df_config.drop(
+                columns=["calcium_chloride_concentration"],
+                inplace=True,
+            )
+
         df_metadata = pd.DataFrame.from_records([metadata])
         df_extension = pd.concat([df_metadata, df_config], axis=1)
         # Expanding dataframe in case of multiple selections in file
