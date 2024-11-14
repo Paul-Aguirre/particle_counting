@@ -13,9 +13,11 @@ import toml
 # from memory_profiler import profile
 
 from calculations_utils import (
+    compute_capsule_concentrations,
     compute_particle_concentration_in_number,
     compute_particle_concentration_in_volume,
     compute_pectin_concentration,
+    recompute_pectin_concentrations,
 )
 from files_io import (
     Result,
@@ -24,6 +26,7 @@ from files_io import (
     df_to_csv,
     get_save_path,
     get_selection_stack,
+    load_records,
     save_records,
 )
 from plane import Plane
@@ -154,17 +157,6 @@ def measure_capsules(
         capsule_diameter = results["hull_props"][0].equivalent_diameter_area
         # (also checked in skimage source code that formula applies to 3D case)
 
-        # * compute pectin concentration in number
-        num_particles_in_number, particle_concentration_in_number = (
-            compute_particle_concentration_in_number(
-                processing_results=results,
-                total_volume=capsule_volume,
-            )
-        )
-        # num_particles_in_number = np.float64(len(results["props"]))
-        # particle_concentration_in_number = num_particles_in_number / capsule_volume
-
-        # * and compute pectin concentration in capsule volume
         # two methods have been thought of for accessing only the tracers
         # in the hull:
         # - the die cutting approach:
@@ -191,7 +183,6 @@ def measure_capsules(
                 )
                 particles_in_hull[dgrid, rgrid, cgrid] = particle.image
 
-        # the actual computations:
         particles_in_hull_results = process_stack(
             image_stack=particles_in_hull,
             metadata=metadata,
@@ -200,58 +191,18 @@ def measure_capsules(
         )
         del particles_in_hull
 
-        (
-            median_num_pixels,
-            num_particles_in_volume,
-            particle_concentration_in_volume,
-        ) = compute_particle_concentration_in_volume(
-            processing_results=particles_in_hull_results,
-            total_volume=capsule_volume,
+        # compute all concentrations values
+        capsule_record = compute_capsule_concentrations(
+            num_regions=np.float64(len(results["props"])),
+            nums_pixels=np.array(
+                [prop.num_pixels for prop in particles_in_hull_results["props"]]
+            ),
+            capsule_diameter=capsule_diameter,
+            capsule_volume=capsule_volume,
+            particle_th_concentration=config["particle_concentration"],
+            pectin_th_concentration=config["pectin_concentration"],
+            calcium_chloride_concentration=config["calcium_chloride_concentration"],
         )
-
-        # fmt: off
-        pectin_experimental_concentration_in_number = (
-            compute_pectin_concentration(
-                particle_concentration=particle_concentration_in_number,
-                config=config,
-            )
-        )
-        pectin_experimental_concentration_in_volume = (
-            compute_pectin_concentration(
-                particle_concentration=particle_concentration_in_volume,
-                config=config,
-            )
-        )
-        # fmt: on
-
-        # * Collecting and organising the results
-        capsule_record = {
-            "capsule_diameter": Result(capsule_diameter, "um"),
-            "capsule_volume": Result(capsule_volume, "um^3"),
-            "median_num_pixels": Result(median_num_pixels, "pixels"),
-            "num_particles_in_number": Result(
-                num_particles_in_number,
-                "particles",
-            ),
-            "particle_concentration_in_number": Result(
-                particle_concentration_in_number,
-                "particles/um^3",
-            ),
-            "num_particles_in_volume": Result(
-                num_particles_in_volume,
-                "particles",
-            ),
-            "particle_concentration_in_volume": Result(
-                particle_concentration_in_volume, "particles/um^3"
-            ),
-            "pectin_experimental_concentration_in_number": Result(
-                pectin_experimental_concentration_in_number, "g/L"
-            ),
-            "pectin_experimental_concentration_in_volume": Result(
-                pectin_experimental_concentration_in_volume, "g/L"
-            ),
-        }
-
         capsules_records.append(capsule_record)
         n_iter += 1
 
@@ -264,17 +215,46 @@ def measure_capsules(
 
     df_capsules_records = pd.DataFrame.from_records(capsules_records_values)
 
-    df_capsules_records["c_0"] = config["pectin_concentration"]
-
-    # fmt: off
-    df_capsules_records["pectin_exp_concs_norm"] = (
-        df_capsules_records.particle_concentration_in_volume
-        / df_capsules_records.c_0
-    )
-    # fmt: on
-
     return (
         capsules_records,
+        df_capsules_records,
+    )  # capsules_processing_results
+
+
+def remake_records(path: Path | str) -> tuple[dict, pd.DataFrame]:
+
+    # * getting back the selections from the config file
+    datapath, dirpath, configpath = check_config(path)
+    print(f"Analysing '{str(datapath)}'.")
+    with open(configpath, "rb") as f:
+        config = tomllib.load(f)
+
+    old_records_path = get_save_path(
+        datapath=datapath, suffix="capsule_records", ext="toml"
+    )
+    records_list = load_records(path=old_records_path)
+
+    new_records = []
+    for record in records_list:
+        new_record = recompute_pectin_concentrations(
+            old_record=record,
+            particle_th_concentration=config["particle_concentration"],
+            pectin_th_concentration=config["pectin_concentration"],
+            calcium_chloride_concentration=config["calcium_chloride_concentration"],
+        )
+        new_records.append(new_record)
+
+    # fmt: off
+    capsules_records_values = [
+        {k: v.value for k, v in record.items()}
+        for record in new_records
+    ]
+    # fmt: on
+
+    df_capsules_records = pd.DataFrame.from_records(capsules_records_values)
+
+    return (
+        new_records,
         df_capsules_records,
     )  # capsules_processing_results
 
@@ -292,8 +272,8 @@ def print_capsule_records(records_lst: list[ResultRecord]):
     # * plot pectin concentration in capsule against capsule radius
 
 
-def plot_save_capsules_stats(
-    datapath: str | Path,
+def plot_capsules_stats(
+    # datapath: str | Path,
     df_capsules_records: pd.DataFrame,
 ) -> None:
 
@@ -308,13 +288,14 @@ def plot_save_capsules_stats(
         df_capsules_records.capsule_diameter
     ).evaluate(df_capsules_records.capsule_diameter)
 
-    scatterplot = capsule_scatter(df_records=df_capsules_records)
+    scatterplot_num, scatterplot_vol = capsule_scatter(df_records=df_capsules_records)
 
-    hist.savefig(fname=get_save_path(datapath, "hist_kde", "png"))
-    kde.savefig(fname=get_save_path(datapath, "kde", "png"))
-    scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
+    # hist.savefig(fname=get_save_path(datapath, "hist_kde", "png"))
+    # kde.savefig(fname=get_save_path(datapath, "kde", "png"))
+    # scatterplot.savefig(fname=get_save_path(datapath, "scatter", "png"))
 
-    plt.show()
+    # plt.show()
+    return hist, kde, scatterplot_num, scatterplot_vol
 
 
 def main() -> None:
@@ -343,16 +324,29 @@ def main() -> None:
         action="store_true",
         help="Shows the plots in pyplot windows.",
     )
+    parser.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Computes again the pectin concentrations without "
+        "analysing the datafiles again.",
+    )
     args = parser.parse_args()
     if args.datapath is None:
         args.datapath = Path(askopenfilename())
 
     datapath, *_ = check_config(args.datapath)
-    (
-        capsules_records,
-        df_capsules_records,
-        # capsules_processing_results,
-    ) = measure_capsules(datapath=datapath, reader=args.reader)
+    if args.recompute:
+        (
+            capsules_records,
+            df_capsules_records,
+            # capsules_processing_results,
+        ) = remake_records(path=datapath)
+    else:
+        (
+            capsules_records,
+            df_capsules_records,
+            # capsules_processing_results,
+        ) = measure_capsules(datapath=datapath, reader=args.reader)
 
     print_capsule_records(capsules_records)
 
