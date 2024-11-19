@@ -286,9 +286,9 @@ def plot_capsules_stats(
     # if a sample is split in several data files, the measurements
     # have to be regrouped in a single DataFrame before computing
     # kde values.
-    df_capsules_records["caps_diams_kde"] = gaussian_kde(
-        df_capsules_records.capsule_diameter
-    ).evaluate(df_capsules_records.capsule_diameter)
+    # df_capsules_records["caps_diams_kde"] = gaussian_kde(
+    #     df_capsules_records.capsule_diameter
+    # ).evaluate(df_capsules_records.capsule_diameter)
 
     scatterplot_num, scatterplot_vol = capsule_scatter(df_records=df_capsules_records)
 

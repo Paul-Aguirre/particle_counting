@@ -360,8 +360,22 @@ def capsule_distrib_kde(
         tuple[seaborn.FacetGrid, seaborn.FacetGrid]: the histogram and
             the kde plots as retruned by the seaborn.displot() function.
     """
-    hist = sns.displot(data=df_records, x="capsule_diameter", kind="hist", kde=True)
-    kde = sns.displot(data=df_records, x="capsule_diameter", kind="kde")
+    hist = sns.displot(
+        data=df_records,
+        x="capsule_diameter",
+        hue="calcium_chloride_concentration",
+        palette=sns.color_palette(),
+        kind="hist",
+        # multiple="stack",
+        kde=True,
+    )
+    kde = sns.displot(
+        data=df_records,
+        x="capsule_diameter",
+        hue="calcium_chloride_concentration",
+        palette=sns.color_palette(),
+        kind="kde",
+    )
     # plt.show()
     return hist, kde
 
@@ -384,12 +398,22 @@ def capsule_scatter(
             function.
     """
 
-    scatterplot = sns.relplot(
+    scatterplot_num = sns.relplot(
         data=df_records,
         x="capsule_diameter",
-        y="pectin_exp_concs_norm",
-        hue="caps_diams_kde",
+        y="pectin_exp_concs_num_norm",
+        hue="pectin_th_concentration",
+        style="calcium_chloride_concentration",
+        palette=sns.color_palette(),
+    )
+    scatterplot_vol = sns.relplot(
+        data=df_records,
+        x="capsule_diameter",
+        y="pectin_exp_concs_vol_norm",
+        hue="pectin_th_concentration",
+        style="calcium_chloride_concentration",
+        palette=sns.color_palette(),
     )
     # sns.move_legend(scatterplot, "upper right")
     # plt.show()
-    return scatterplot
+    return scatterplot_num, scatterplot_vol
