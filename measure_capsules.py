@@ -42,6 +42,7 @@ from statistics_plots import (
 def measure_capsules(
     datapath: str | Path,
     reader: Literal["nd2reader", "nd2"],
+    convert_to_8bit: bool = False,
 ) -> tuple[list[ResultRecord], pd.DataFrame]:
 
     print(f"Analysing '{str(datapath)}'.")
@@ -64,6 +65,7 @@ def measure_capsules(
         datapath=datapath,
         reader=reader,
         use_patches=True,
+        convert_to_8bit=convert_to_8bit,
     ):
 
         # * applying process stack to each substack
@@ -328,9 +330,24 @@ def main() -> None:
         "--recompute",
         action="store_true",
         help="Computes again the pectin concentrations without "
-        "analysing the datafiles again.",
+        "analysing the datafiles again. "
+        "Incompatible with flag '--convert_to_8bit'.",
+    )
+    parser.add_argument(
+        "--convert_to_8bit",
+        action="store_true",
+        help="Converts the input images to 8-bit images before processing. "
+        "Incompatible with flag '--recompute'.",
     )
     args = parser.parse_args()
+    if args.recompute and args.convert_to_8bit:
+        # fmt: off
+        raise ValueError(
+            "Arguments '--recompute' and '--convert_to_8bit' "
+            "are incompatible.",
+        )
+        # fmt: on
+
     if args.datapath is None:
         args.datapath = Path(askopenfilename())
 
@@ -346,7 +363,11 @@ def main() -> None:
             capsules_records,
             df_capsules_records,
             # capsules_processing_results,
-        ) = measure_capsules(datapath=datapath, reader=args.reader)
+        ) = measure_capsules(
+            datapath=datapath,
+            reader=args.reader,
+            convert_to_8bit=args.convert_to_8bit,
+        )
 
     print_capsule_records(capsules_records)
 

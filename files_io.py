@@ -31,6 +31,7 @@ from nd2reader import ND2Reader
 import nd2
 import pandas as pd
 import toml
+from skimage.exposure import rescale_intensity
 
 
 class Result(NamedTuple):
@@ -56,6 +57,7 @@ def load_image_stack(
     zstop: int | None = None,
     zstep: int = 1,
     reader: Literal["nd2reader", "nd2"] = None,
+    convert_to_8bit: bool = False,
 ) -> tuple[np.ndarray, dict]:
     """Loads the data and metadata from an ND2 file. Optionnaly only
     within specifyied selection boundaries, if specifyied, the metadata
@@ -109,6 +111,9 @@ def load_image_stack(
         # fmt: on
 
     image_stack = image_stack[:, ystart:ystop, xstart:xstop]
+    if convert_to_8bit:
+        image_stack = convert_16bit_to_8bit(image_stack)
+
     if xstop:
         metadata["width"] = xstop - xstart
     else:
@@ -133,6 +138,7 @@ def get_selection_stack(
     datapath: str | Path,
     reader: Literal["nd2reader", "nd2"] = None,
     use_patches: bool = False,
+    convert_to_8bit: bool = False,
 ) -> Generator[tuple[np.ndarray, dict], None, None]:
     """Iterator that yields substacks one by one. Substacks are selected
     using a list contained in the configuration file associted
@@ -158,6 +164,7 @@ def get_selection_stack(
             zstop=config["zstop"],
             zstep=config["zstep"],
             reader=reader,
+            convert_to_8bit=convert_to_8bit,
         )
         if use_patches:
             if "patches" in selection.keys():
@@ -177,6 +184,7 @@ def get_selection_slices(
     datapath: Path | str,
     reader: Literal["nd2reader", "nd2"] = None,
     use_patches: bool = False,
+    convert_to_8bit: bool = False,
 ) -> Generator[tuple[np.ndarray, dict], None, None]:
     for selection in config["selections"]:
         image, metadata = load_image_stack(
@@ -188,6 +196,7 @@ def get_selection_slices(
             zstart=selection["zslice"],
             zstop=selection["zslice"] + 1,
             reader=reader,
+            convert_to_8bit=convert_to_8bit,
         )
         if use_patches:
             if "patches" in selection.keys():
@@ -530,6 +539,36 @@ def collect_results_from_csvs(
     df_results.reset_index(inplace=True, drop=True)
 
     return df_results
+
+
+def convert_16bit_to_8bit(image_stack_16bit):
+    """
+    Converts a stack of 16-bit images to an 8-bit stack using scikit-image.
+
+    Parameters:
+    - image_stack_16bit: np.ndarray
+        Input 16-bit image stack with shape (depth, height, width).
+
+    Returns:
+    - image_stack_8bit: np.ndarray
+        Output 8-bit image stack with the same shape as the input.
+    """
+    # Ensure the input is a 16-bit stack
+    if image_stack_16bit.dtype != np.uint16:
+        raise ValueError("Input image stack must be of dtype uint16.")
+
+    # Rescale intensity for each slice independently
+    image_stack_8bit = np.zeros_like(image_stack_16bit, dtype=np.uint8)
+    for i in range(image_stack_16bit.shape[0]):  # Loop over the depth
+        image_stack_8bit[i] = rescale_intensity(
+            image_stack_16bit[i],
+            in_range="dtype",
+            out_range="uint8",
+        )
+        # image_stack_8bit[i] = image_rescaled
+        # image_stack_8bit[i] = img_as_ubyte(image_rescaled)
+
+    return image_stack_8bit
 
 
 def main() -> None:
