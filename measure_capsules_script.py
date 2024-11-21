@@ -29,7 +29,7 @@ def main() -> list:
                         "measure_capsules.py",
                         "--reader",
                         "nd2reader",
-                        "-datapath",
+                        "--datapath",
                         file,
                     ],
                     capture_output=True,
@@ -44,7 +44,10 @@ def main() -> list:
         args.shutdown_after = False
 
     finally:
-        with open(f"processes_{start_time}.pickle", "wb") as f:
+        with open(
+            f"processes_{start_time.strftime("%d/%m/%y-%H_%M_%S_%f")}.pickle",
+            "wb",
+        ) as f:
             pickle.dump(processes, f)
 
         if args.shutdown_after:
