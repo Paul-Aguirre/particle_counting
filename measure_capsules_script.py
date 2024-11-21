@@ -19,8 +19,8 @@ def main() -> list:
     start_time = datetime.now()
     processes = []
 
-    try:
-        for file in datafiles:
+    for file in datafiles:
+        try:
             processes.append(
                 datetime.now(),
                 subprocess.run(
@@ -38,22 +38,23 @@ def main() -> list:
                 datetime.now(),
             )
 
-    except KeyboardInterrupt:
-        print("Processing interupted.")
-        print("Saving processes states.")
-        args.shutdown_after = False
+        except KeyboardInterrupt:
+            print("Processing interupted.")
+            args.shutdown_after = False
+            break
 
-    finally:
-        with open(
-            f"processes_{start_time.strftime("%d/%m/%y-%H_%M_%S_%f")}.pickle",
-            "wb",
-        ) as f:
-            pickle.dump(processes, f)
+        finally:
+            print(f"Saving process states for file '{file}'.")
+            with open(
+                f"processes_{start_time.strftime("%d/%m/%y-%H_%M_%S_%f")}.pickle",
+                "wb",
+            ) as f:
+                pickle.dump(processes, f)
 
-        if args.shutdown_after:
-            subprocess.run(["shutdown", "-s"])
+    if args.shutdown_after:
+        subprocess.run(["shutdown", "-s"])
 
-        return processes
+    return processes
 
 
 if __name__ == "__main__":
