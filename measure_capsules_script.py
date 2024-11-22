@@ -1,4 +1,5 @@
 from tkinter.filedialog import askopenfilenames
+from tkinter.messagebox import askyesno
 import pickle
 from datetime import datetime
 import subprocess
@@ -14,8 +15,16 @@ def main() -> list:
         help="Shuts down the machine after the analysis is complete.",
     )
     args = parser.parse_args()
+    datafiles = []
+    choose_again = True
 
-    datafiles = askopenfilenames()
+    while choose_again:
+        datafiles += [file for file in askopenfilenames()]
+        choose_again = askyesno(
+            title="Continue?",
+            message="Do you wish to select other files?",
+        )
+
     start_time = datetime.now()
     processes = []
 
@@ -46,12 +55,12 @@ def main() -> list:
             break
 
         finally:
-            print(f"Saving process states for file '{file}'.")
+            print(f"Saving process state for file '{file}'.")
             with open(
                 f"processes_{start_time.strftime("%d_%m_%y-%H_%M_%S_%f")}.pickle",
                 "wb",
             ) as f:
-                pickle.dump(processes, f)
+                pickle.dump((datafiles, processes), f)
 
     if args.shutdown_after:
         subprocess.run(["shutdown", "-s"])
