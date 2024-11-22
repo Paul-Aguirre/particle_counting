@@ -46,7 +46,7 @@ def main() -> list:
         finally:
             print(f"Saving process states for file '{file}'.")
             with open(
-                f"processes_{start_time.strftime("%d/%m/%y-%H_%M_%S_%f")}.pickle",
+                f"processes_{start_time.strftime("%d_%m_%y-%H_%M_%S_%f")}.pickle",
                 "wb",
             ) as f:
                 pickle.dump(processes, f)
