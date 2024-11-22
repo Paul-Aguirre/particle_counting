@@ -22,20 +22,22 @@ def main() -> list:
     for file in datafiles:
         try:
             processes.append(
-                datetime.now(),
-                subprocess.run(
-                    [
-                        "py",
-                        "measure_capsules.py",
-                        "--reader",
-                        "nd2reader",
-                        "--datapath",
-                        file,
-                    ],
-                    capture_output=True,
-                    text=True,
-                ),
-                datetime.now(),
+                (
+                    datetime.now(),
+                    subprocess.run(
+                        [
+                            "py",
+                            "measure_capsules.py",
+                            "--reader",
+                            "nd2reader",
+                            "--datapath",
+                            file,
+                        ],
+                        capture_output=True,
+                        text=True,
+                    ),
+                    datetime.now(),
+                )
             )
 
         except KeyboardInterrupt:
