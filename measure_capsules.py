@@ -1,6 +1,6 @@
 import tomllib
 from pathlib import Path
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askdirectory, askopenfilename
 import argparse
 from typing import Literal
 
@@ -312,6 +312,12 @@ def main() -> None:
         help="The path to the datafile to analyse.",
     )
     parser.add_argument(
+        "--select_directory",
+        action="store_true",
+        help="Allows to choose a directory instead of a file when "
+        "choosing from the UI.",
+    )
+    parser.add_argument(
         "-r",
         "--reader",
         action="store",
@@ -349,7 +355,10 @@ def main() -> None:
         # fmt: on
 
     if args.datapath is None:
-        args.datapath = Path(askopenfilename())
+        if args.select_directory:
+            args.datapath = Path(askdirectory())
+        else:
+            args.datapath = Path(askopenfilename())
 
     datapath, *_ = check_config(args.datapath)
     if args.recompute:
