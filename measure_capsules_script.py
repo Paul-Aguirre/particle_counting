@@ -14,6 +14,11 @@ def main() -> list:
         action="store_true",
         help="Shuts down the machine after the analysis is complete.",
     )
+    parser.add_argument(
+        "--recompute",
+        action="store_true",
+        help="Runs the measure_capsules script with the '--recompute' flag.",
+    )
     args = parser.parse_args()
     datafiles = []
     choose_again = True
@@ -28,20 +33,24 @@ def main() -> list:
     start_time = datetime.now()
     processes = []
 
+    command = [
+        "py",
+        "measure_capsules.py",
+        "--recompute",
+        "--reader",
+        "nd2reader",
+        "--datapath",
+    ]
+    if not args.recompute:
+        command.remove("--recompute")
+
     for file in datafiles:
         try:
             processes.append(
                 (
                     datetime.now(),
                     subprocess.run(
-                        [
-                            "py",
-                            "measure_capsules.py",
-                            "--reader",
-                            "nd2reader",
-                            "--datapath",
-                            file,
-                        ],
+                        command + [file],
                         capture_output=True,
                         text=True,
                     ),
