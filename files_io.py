@@ -490,10 +490,12 @@ def collect_results_from_csvs(
 
     dfs: list[pd.DataFrame] = []
     for (
+        path,
         results_file,
         config,
         metadata,
     ) in zip(
+        datafiles,
         results_files,
         configs,
         metadata_list,
