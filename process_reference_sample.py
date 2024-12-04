@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+import pandas as pd
 import toml
 
 from calculations_utils import (
@@ -19,9 +20,11 @@ from multi_slice_viewer import (
 )
 from statistics_plots import particle_distributions
 from files_io import (
+    df_to_csv,
     load_image_stack,
     check_config,
     Result,
+    ResultRecord,
     save_records,
 )
 
@@ -99,7 +102,7 @@ def process_reference_sample(
         num_regions,
         particle_concentration_in_number,
     ) = compute_particle_concentration_in_number(
-        processing_results=results,
+        num_regions=len(results["props"]),
         total_volume=total_volume,
     )
 
@@ -132,7 +135,7 @@ def process_reference_sample(
         num_particles_in_volume,
         particle_concentration_in_volume,
     ) = compute_particle_concentration_in_volume(
-        processing_results=results,
+        nums_pixels=np.array([prop.num_pixels for prop in results["props"]]),
         total_volume=total_volume,
     )
 
@@ -162,7 +165,17 @@ def process_reference_sample(
         "median_num_pixels": Result(median_num_pixels, "pixels"),  # ?
     }
 
-    return metadata, results, ref_results, histograms, plots
+    ref_results_values = {key: res.value for key, res in ref_results.items()}
+    df_ref_results = pd.DataFrame.from_records([ref_results_values])
+
+    return (
+        metadata,
+        results,
+        ref_results,
+        df_ref_results,
+        histograms,
+        plots,
+    )
 
 
 def test_threshold_sensitivity(
@@ -241,6 +254,17 @@ def test_threshold_sensitivity(
         print("")
 
 
+def print_reference_records(
+    datapath: str | Path,
+    records: list[ResultRecord],
+):
+    title_str = f'Reference file: "{Path(datapath)}".'
+    print("{:-^72}".format(title_str))
+    for measure_name, measure_value in records.items():
+        line_title = measure_name.replace("_", " ").capitalize()
+        print(f"{line_title}: {measure_value.value:.4e} {measure_value.unit}")
+
+
 def print_reference_results(datapath: Path, results: dict):
     print(f"File: {datapath.name}")
     print(
@@ -281,6 +305,7 @@ def main() -> None:
         metadata,
         results,
         ref_results,
+        df_ref_results,
         histograms,
         plots,
     ) = process_reference_sample(
@@ -288,13 +313,26 @@ def main() -> None:
         view_stack=False,
         view_distributions=True,
     )
-    print_reference_results(datapath, ref_results)
+    print_reference_records(datapath, ref_results)
+    df_props = pd.DataFrame(results["df_props"])
+    save_props_path = df_to_csv(
+        df_records=df_props,
+        datapath=datapath,
+        suffix="regions_properties",
+    )
+    print(f'Reference sample regions properties saved to "{save_props_path}".')
     save_results_path = save_records(
         [ref_results],
         datapath=datapath,
         suffix="reference_results",
     )
-    print(f'Reference sample results saved at "{save_results_path}".')
+    print(f'Reference sample results saved to "{save_results_path}".')
+    save_results_path_csv = df_to_csv(
+        df_records=df_ref_results,
+        datapath=datapath,
+        suffix="reference_results",
+    )
+    print(f'Reference sample results saved to "{save_results_path_csv}".')
     return (
         metadata,
         results,

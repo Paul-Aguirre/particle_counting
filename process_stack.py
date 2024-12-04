@@ -4,6 +4,7 @@ this function are regrouped in a separate module: process_stack_utils.py
 """
 
 import numpy as np
+import pandas as pd
 from skimage import measure
 
 # from memory_profiler import profile
@@ -168,7 +169,35 @@ def process_stack(
     # * Labeling and measuring particles properties
     labels = measure.label(processed_stack).astype(np.uint16)
     props = measure.regionprops(labels)
-    results.update(props=props)
+    df_props = pd.DataFrame(
+        measure.regionprops_table(
+            label_image=labels,
+            properties=(
+                "label",
+                "bbox",
+                "centroid",
+                "area",
+                "num_pixels",
+                "slice",
+                "equivalent_diameter_area",
+            ),
+        )
+    )
+    df_props.rename(
+        columns={
+            "bbox-0": "bbox_zmin",
+            "bbox-1": "bbox_ymin",
+            "bbox-2": "bbox_xmin",
+            "bbox-3": "bbox_zmax",
+            "bbox-4": "bbox_ymax",
+            "bbox-5": "bbox_xmax",
+            "centroid-0": "centroid_z",
+            "centroid-1": "centroid_y",
+            "centroid-2": "centroid_x",
+        },
+        inplace=True,
+    )
+    results.update(props=props, df_props=df_props)
     if scale_props:
         scaled_props = measure.regionprops(
             label_image=labels,
@@ -210,13 +239,17 @@ def process_stack(
     # * Determine the convex hull (applicable for capsules)
     # (usable to determine capsule volume)
     if capsule:
-        hull, hull_props = process_capsule_hull(
+        hull, hull_props, hull_props_table = process_capsule_hull(
             processed_stack=processed_stack,
             props=props,
             metadata=metadata,
             trac_nb_thresh=trac_nb_thresh,
             plane=filtering_plane,
         )
-        results.update(hull=hull, hull_props=hull_props)
+        results.update(
+            hull=hull,
+            hull_props=hull_props,
+            hull_props_table=hull_props_table,
+        )
 
     return results

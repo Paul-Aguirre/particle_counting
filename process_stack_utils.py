@@ -3,9 +3,9 @@ function from the process_stack.py module.
 """
 
 from pathlib import Path
+
 import numpy as np
 from skimage import filters, measure, morphology, draw
-
 from nd2reader import ND2Reader
 
 # from memory_profiler import profile
@@ -260,6 +260,23 @@ def process_capsule_hull(
                 metadata["pixel_microns"],  # x
             ),
         )
+        hull_props_table = measure.regionprops_table(
+            label_image=labeled_hull,
+            properties=(
+                "label",
+                "bbox",
+                "centroid",
+                "area",
+                "num_pixels",
+                "slice",
+                "equivalent_diameter_area",
+                "solidity",
+            ),
+            spacing=(
+                metadata["pixel_microns"],  # y
+                metadata["pixel_microns"],  # x
+            ),
+        )
     else:
         hull_props = measure.regionprops(
             labeled_hull,
@@ -269,7 +286,25 @@ def process_capsule_hull(
                 metadata["pixel_microns"],  # x
             ),
         )
-    return hull, hull_props
+        hull_props_table = measure.regionprops_table(
+            label_image=labeled_hull,
+            properties=(
+                "label",
+                "bbox",
+                "centroid",
+                "area",
+                "num_pixels",
+                "slice",
+                "equivalent_diameter_area",
+                "solidity",
+            ),
+            spacing=(
+                np.mean(np.diff(np.array(metadata["z_coordinates"]))),  # z
+                metadata["pixel_microns"],  # y
+                metadata["pixel_microns"],  # x
+            ),
+        )
+    return hull, hull_props, hull_props_table
 
 
 def count_crossed_bboxes(
