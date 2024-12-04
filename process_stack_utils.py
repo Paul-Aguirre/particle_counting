@@ -218,6 +218,7 @@ def process_capsule_hull(
     props: list[Region],
     metadata: dict,
     trac_nb_thresh: int,
+    no_copy: bool = False,
     plane: Plane = Plane.XY,
 ) -> tuple:
     """Processes image stack by filtering the images by number of
@@ -244,13 +245,25 @@ def process_capsule_hull(
         processed_stack = processed_stack.reshape(processed_stack.shape[1:])
         hull = morphology.convex_hull_image(processed_stack)
     else:
-        filtered_hull_slices = get_filtered_stack(
-            image_stack=processed_stack,
-            regions=props,
-            threshold=trac_nb_thresh,
-            plane=plane,
-        )
-        hull = morphology.convex_hull_image(filtered_hull_slices)
+        if no_copy:
+            filtered_regions = get_filtered_stack_no_copy(
+                shape_out=processed_stack.shape,
+                regions=props,
+                threshold=trac_nb_thresh,
+                plane=plane,
+            )
+            hull = convex_hull_from_coordinates(
+                coords=[region.centroid for region in filtered_regions],
+                output_shape=processed_stack.shape,
+            )
+        else:
+            filtered_hull_slices = get_filtered_stack(
+                image_stack=processed_stack,
+                regions=props,
+                threshold=trac_nb_thresh,
+                plane=plane,
+            )
+            hull = morphology.convex_hull_image(filtered_hull_slices)
 
     labeled_hull = measure.label(hull).astype(np.uint8)
     # uint8 is enough here because only 1 region is present

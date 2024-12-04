@@ -245,6 +245,7 @@ def process_stack(
             metadata=metadata,
             trac_nb_thresh=trac_nb_thresh,
             plane=filtering_plane,
+            no_copy=True,
         )
         results.update(
             hull=hull,
