@@ -57,8 +57,9 @@ def measure_capsules(
 
     # * loading the substack from the main large image
     capsules_records: list = []
+    dfs_props: list[pd.DataFrame] = []
     # capsules_processing_results = []
-    results: dict = {}
+    # results: dict = {}
     n_iter: int = 1
     for substack, metadata in get_selection_stack(
         config=config,
@@ -69,10 +70,10 @@ def measure_capsules(
     ):
 
         # * applying process stack to each substack
-        process_stack(
+        results: dict = process_stack(
             image_stack=substack,
             metadata=metadata,
-            results=results,
+            # results=results,
             threshold=config.get("threshold"),
             threshold_by_image=config.get("threshold_by_image", False),
             morph_open=False,
@@ -152,6 +153,9 @@ def measure_capsules(
                 # transparent=True,
             )
 
+        # * extract particle stats
+        dfs_props.append(results["df_props"])
+
         # * extract capsule size parameters
         assert len(results["hull_props"]) == 1
         capsule_volume = results["hull_props"][0].area  # in µm^3
@@ -218,6 +222,7 @@ def measure_capsules(
     df_capsules_records = pd.DataFrame.from_records(capsules_records_values)
 
     return (
+        dfs_props,
         capsules_records,
         df_capsules_records,
     )  # capsules_processing_results
@@ -369,6 +374,7 @@ def main() -> None:
         ) = remake_records(path=datapath)
     else:
         (
+            dfs_props,
             capsules_records,
             df_capsules_records,
             # capsules_processing_results,
@@ -383,20 +389,30 @@ def main() -> None:
     if args.show_plots:
         plt.show()
 
+    for i, df_props in enumerate(dfs_props, start=1):
+        save_props_path = df_to_csv(
+            df_records=df_props,
+            datapath=datapath,
+            suffix=f"region_properties_no_{i}",
+        )
+        print(
+            f"\nCapsule no.{i} tracer region properties saved to\n"
+            f'"{save_props_path}".'
+        )
+
     save_records_path = save_records(
         records_lst=capsules_records,
         datapath=datapath,
         suffix="capsule_records",
     )
+    print(f'\nCapsule measurements results saved to \n"{save_records_path}"')
+
     save_records_path_csv = df_to_csv(
         df_records=df_capsules_records,
         datapath=datapath,
         suffix="capsule_records",
     )
-    print(
-        f'\nCapsule measurements results saved at \n"{save_records_path}"'
-        f'\n and at "\n{save_records_path_csv}".'
-    )
+    print(f'\nCapsule measurements results saved to "\n{save_records_path_csv}".')
 
 
 if __name__ == "__main__":
