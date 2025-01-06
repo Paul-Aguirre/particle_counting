@@ -264,11 +264,19 @@ def initialize_config(filename: Path | str, metadata: dict) -> None:
         "zstep": 1,
         "threshold_by_image": False,
         "particle_size_microns": 1,  # defaults to 1 µm
-        "particle_concentration": 1e-4,  # in particles/µm^3
+        "particle_concentration_th": 1e-4,  # in particles/µm^3
+        "particle_concentration_exp": 1e-4,  # in particles/µm^3
         "pectin_concentration": 40,  # in g/L
         "calcium_chloride_concentration": 2,  # in mmol/L
         "selections": [],
     }
+    """
+    "particle_concentration_th" is calculated from the weight of tracers
+    solution added to the pectin solution.
+    
+    "particle_concentration_exp" is the measured concentration in
+    a reference sample and is only defined for a capsule sample.
+    """
     with open(filename, mode="w") as f:
         toml.dump(toml_dict, f)
 
@@ -445,7 +453,7 @@ def df_to_csv(
     return save_path
 
 
-def collect_results_from_csvs(
+def collect_capsules_results_from_csvs(
     datafiles: list[str | Path],
     suffix: str,
 ) -> pd.DataFrame:
@@ -463,44 +471,18 @@ def collect_results_from_csvs(
                     del selection["patches"]
             configs.append(config)
 
-        selected_metadata = {
-            k: v
-            for k, v in get_metadata(datafile).items()
-            if k
-            in [
-                "pixel_microns",
-                "width",
-                "height",
-                "z_levels",
-                "z_coordinates",
-            ]
-        }
-        selected_metadata["zstep_microns"] = float(
-            np.median(np.diff(np.array(selected_metadata.pop("z_coordinates"))))
-        )
-        # fmt: off
-        selected_metadata["num_steps"] = (
-            selected_metadata["z_levels"].stop
-            - selected_metadata["z_levels"].start
-        )
-        # fmt: on
-        del selected_metadata["z_levels"]
-        selected_metadata["file"] = str(datafile)
-        metadata_list.append(selected_metadata)
-
     dfs: list[pd.DataFrame] = []
     for (
         path,
         results_file,
         config,
-        metadata,
     ) in zip(
         datafiles,
         results_files,
         configs,
-        metadata_list,
     ):
         df_csv = pd.read_csv(results_file, header=0, index_col=0)
+        df_csv["path"] = path
         selections = config.pop("selections")
         df_selections = pd.DataFrame.from_records(selections)
         df_selections.rename(
@@ -509,14 +491,13 @@ def collect_results_from_csvs(
             inplace=True,
         )
         df_config = pd.DataFrame.from_records([config])
-        if "calcium_chloride_concentration" in df_csv.columns:
-            df_config.drop(
+        if "calcium_chloride_concentration" in df_config.columns:
+            df_csv.drop(
                 columns=["calcium_chloride_concentration"],
                 inplace=True,
             )
 
-        df_metadata = pd.DataFrame.from_records([metadata])
-        df_extension = pd.concat([df_metadata, df_config], axis=1)
+        df_extension = df_config
         # Expanding dataframe in case of multiple selections in file
         for _ in range(len(df_csv) - 1):
             df_extension = pd.concat(
@@ -533,6 +514,52 @@ def collect_results_from_csvs(
             ],
             axis=1,
         )
+        dfs.append(df_complete)
+
+    df_results = dfs[0]
+    for df in dfs[1:]:
+        df_results = pd.concat([df_results, df], axis=0)
+    df_results.reset_index(inplace=True, drop=True)
+
+    return df_results
+
+
+def collect_reference_results_from_csvs(
+    datafiles: list[str | Path],
+    suffix: str,
+) -> pd.DataFrame:
+    results_files: list[Path] = [
+        get_save_path(datafile, suffix, "csv") for datafile in datafiles
+    ]
+    configs: list[dict] = []
+    for datafile in datafiles:
+        *_, configpath = check_config(path=datafile)
+        with open(configpath, "rb") as f:
+            config = tomllib.load(f)
+        del config["selections"]
+        configs.append(config)
+
+    dfs: list[pd.DataFrame] = []
+    for (
+        path,
+        results_file,
+        config,
+    ) in zip(
+        datafiles,
+        results_files,
+        configs,
+    ):
+        df_csv = pd.read_csv(results_file, header=0, index_col=0)
+        df_csv["path"] = path
+        df_config = pd.DataFrame.from_records([config])
+        df_complete = pd.concat(
+            [
+                df_csv,
+                df_config,
+            ],
+            axis=1,
+        )
+        df_complete.reset_index(inplace=True, drop=True)
         dfs.append(df_complete)
 
     df_results = dfs[0]
