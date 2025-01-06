@@ -386,35 +386,35 @@ def main() -> None:
             convert_to_8bit=args.convert_to_8bit,
         )
 
+        for i, df_props in enumerate(dfs_props, start=1):
+            save_props_path = df_to_csv(
+                df_records=df_props,
+                datapath=datapath,
+                suffix=f"region_properties_no_{i}",
+            )
+            print(
+                f"\nCapsule no.{i} tracer region properties saved to\n"
+                f'"{save_props_path}".'
+            )
+
     print_capsule_records(capsules_records)
 
     if args.show_plots:
         plt.show()
-
-    for i, df_props in enumerate(dfs_props, start=1):
-        save_props_path = df_to_csv(
-            df_records=df_props,
-            datapath=datapath,
-            suffix=f"region_properties_no_{i}",
-        )
-        print(
-            f"\nCapsule no.{i} tracer region properties saved to\n"
-            f'"{save_props_path}".'
-        )
 
     save_records_path = save_records(
         records_lst=capsules_records,
         datapath=datapath,
         suffix="capsule_records",
     )
-    print(f'\nCapsule measurements results saved to \n"{save_records_path}"')
+    print(f'\nCapsule measurements results saved to\n"{save_records_path}".')
 
     save_records_path_csv = df_to_csv(
         df_records=df_capsules_records,
         datapath=datapath,
         suffix="capsule_records",
     )
-    print(f'\nCapsule measurements results saved to "\n{save_records_path_csv}".')
+    print(f'\nCapsule measurements results saved to\n"{save_records_path_csv}".')
 
 
 if __name__ == "__main__":
