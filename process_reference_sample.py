@@ -1,4 +1,5 @@
 from tkinter.filedialog import askopenfilename
+import argparse
 import tomllib
 from pathlib import Path
 
@@ -298,7 +299,30 @@ def print_reference_results(datapath: Path, results: dict):
 
 
 def main() -> None:
-    datapath = Path(askopenfilename(title="Choose a data file"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-d",
+        "--datapath",
+        action="store",
+        help="The path to the datafile to analyse",
+    )
+    parser.add_argument(
+        "--view_stack",
+        action="store_true",
+        help="Shows the image stack.",
+    )
+    parser.add_argument(
+        "--view_distributions",
+        action="store_true",
+        help="Shows the tracer particles distributions plots.",
+    )
+    args = parser.parse_args()
+
+    if args.datapath is None:
+        datapath = Path(askopenfilename(title="Choose a data file"))
+
+    datapath, *_ = check_config(args.datapath)
+
     if not datapath.is_file():
         raise ValueError("No file was selected.")
     (
@@ -310,10 +334,12 @@ def main() -> None:
         plots,
     ) = process_reference_sample(
         datapath,
-        view_stack=False,
-        view_distributions=True,
+        view_stack=args.view_stack,
+        view_distributions=args.view_distributions,
     )
+
     print_reference_records(datapath, ref_results)
+
     df_props = pd.DataFrame(results["df_props"])
     save_props_path = df_to_csv(
         df_records=df_props,
@@ -321,18 +347,21 @@ def main() -> None:
         suffix="regions_properties",
     )
     print(f'Reference sample regions properties saved to "{save_props_path}".')
+
     save_results_path = save_records(
         [ref_results],
         datapath=datapath,
         suffix="reference_results",
     )
     print(f'Reference sample results saved to "{save_results_path}".')
+
     save_results_path_csv = df_to_csv(
         df_records=df_ref_results,
         datapath=datapath,
         suffix="reference_results",
     )
     print(f'Reference sample results saved to "{save_results_path_csv}".')
+
     return (
         metadata,
         results,
