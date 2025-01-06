@@ -5,6 +5,8 @@ from datetime import datetime
 import subprocess
 import argparse
 
+from tqdm import tqdm
+
 
 def main() -> list:
     parser = argparse.ArgumentParser()
@@ -18,6 +20,11 @@ def main() -> list:
         "--recompute",
         action="store_true",
         help="Runs the measure_capsules script with the '--recompute' flag.",
+    )
+    parser.add_argument(
+        "--disable_progress_bar",
+        action="store_true",
+        help="Disable the progress bar display.",
     )
     args = parser.parse_args()
     datafiles = []
@@ -44,7 +51,12 @@ def main() -> list:
     if not args.recompute:
         command.remove("--recompute")
 
-    for file in datafiles:
+    for file in tqdm(
+        datafiles,
+        desc="Files processed",
+        disable=args.disable_progress_bar,
+        unit="files",
+    ):
         try:
             processes.append(
                 (
