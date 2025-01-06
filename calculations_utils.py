@@ -41,13 +41,17 @@ def compute_particle_concentration_in_volume(
 
 
 def compute_pectin_concentration(
-    particle_exp_concentration: float,
-    particle_th_concentration: float,
-    pectin_th_concentration: float,
+    particle_current_concentration: float,
+    particle_init_concentration: float,
+    pectin_init_concentration: float,
 ) -> float:
+    # fmt: off
     pectin_exp_concentration = (
-        particle_exp_concentration * pectin_th_concentration / particle_th_concentration
+        particle_current_concentration 
+        * pectin_init_concentration 
+        / particle_init_concentration
     )
+    # fmt: on
     return pectin_exp_concentration
 
 
@@ -56,12 +60,13 @@ def compute_capsule_concentrations(
     nums_pixels: np.ndarray,
     capsule_diameter: float,
     capsule_volume: float,
-    particle_th_concentration: float,
+    particle_th_ref_concentration: float,
+    particle_exp_ref_concentration: float,
     pectin_th_concentration: float,
     calcium_chloride_concentration: float,
 ) -> dict:
 
-    # * compute pectin concentration in number
+    # * compute particle concentration in number
     num_particles_in_number, particle_concentration_in_number = (
         compute_particle_concentration_in_number(
             total_volume=capsule_volume,
@@ -69,7 +74,7 @@ def compute_capsule_concentrations(
         )
     )
 
-    # * and compute pectin concentration in capsule volume
+    # * compute particle concentration in capsule volume
     (
         median_num_pixels,
         num_particles_in_volume,
@@ -79,28 +84,45 @@ def compute_capsule_concentrations(
         nums_pixels=nums_pixels,
     )
 
+    # * compute pectin concentrations in number/volume using
+    # * th/exp particle reference concentration
+    pectin_exp_concentration_th_part_in_number = compute_pectin_concentration(
+        particle_current_concentration=particle_concentration_in_number,
+        particle_init_concentration=particle_th_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_exp_concentration_th_part_in_volume = compute_pectin_concentration(
+        particle_current_concentration=particle_concentration_in_volume,
+        particle_init_concentration=particle_th_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_exp_concentration_exp_part_in_number = compute_pectin_concentration(
+        particle_current_concentration=particle_concentration_in_number,
+        particle_init_concentration=particle_exp_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_exp_concentration_exp_part_in_volume = compute_pectin_concentration(
+        particle_current_concentration=particle_concentration_in_volume,
+        particle_init_concentration=particle_exp_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+
+    # * normalising pectin concentration
     # fmt: off
-    pectin_exp_concentration_in_number = (
-        compute_pectin_concentration(
-            particle_exp_concentration=particle_concentration_in_number,
-            particle_th_concentration=particle_th_concentration,
-            pectin_th_concentration=pectin_th_concentration,
-        )
-    )
-    pectin_exp_concentration_in_volume = (
-        compute_pectin_concentration(
-            particle_exp_concentration=particle_concentration_in_volume,
-            particle_th_concentration=particle_th_concentration,
-            pectin_th_concentration=pectin_th_concentration,
-        )
-    )
-    
-    pectin_exp_concs_num_norm = (
-        pectin_exp_concentration_in_number
+    pectin_exp_concentration_th_part_num_norm = (
+        pectin_exp_concentration_th_part_in_number
         / pectin_th_concentration
     )
-    pectin_exp_concs_vol_norm = (
-        pectin_exp_concentration_in_volume
+    pectin_exp_concentration_th_part_vol_norm = (
+        pectin_exp_concentration_th_part_in_volume
+        / pectin_th_concentration
+    )
+    pectin_exp_concentration_exp_part_num_norm = (
+        pectin_exp_concentration_exp_part_in_number
+        / pectin_th_concentration
+    )
+    pectin_exp_concentration_exp_part_vol_norm = (
+        pectin_exp_concentration_exp_part_in_volume
         / pectin_th_concentration
     )
     # fmt: on
@@ -125,23 +147,37 @@ def compute_capsule_concentrations(
         "particle_concentration_in_volume": Result(
             particle_concentration_in_volume, "particles/um^3"
         ),
-        "pectin_experimental_concentration_in_number": Result(
-            pectin_exp_concentration_in_number, "g/L"
+        "pectin_experimental_concentration_th_part_in_number": Result(
+            pectin_exp_concentration_th_part_in_number, "g/L"
         ),
-        "pectin_experimental_concentration_in_volume": Result(
-            pectin_exp_concentration_in_volume, "g/L"
+        "pectin_experimental_concentration_th_part_in_volume": Result(
+            pectin_exp_concentration_th_part_in_volume, "g/L"
+        ),
+        "pectin_experimental_concentration_exp_part_in_number": Result(
+            pectin_exp_concentration_exp_part_in_number, "g/L"
+        ),
+        "pectin_experimental_concentration_exp_part_in_volume": Result(
+            pectin_exp_concentration_exp_part_in_volume, "g/L"
         ),
         "pectin_th_concentration": Result(
             np.float64(pectin_th_concentration),
             "g/L",
         ),
-        "pectin_exp_concs_num_norm": Result(
-            pectin_exp_concs_num_norm,
-            "g/L",
+        "pectin_exp_concs_th_part_num_norm": Result(
+            pectin_exp_concentration_th_part_num_norm,
+            "",
         ),
-        "pectin_exp_concs_vol_norm": Result(
-            pectin_exp_concs_vol_norm,
-            "g/L",
+        "pectin_exp_concs_th_part_vol_norm": Result(
+            pectin_exp_concentration_th_part_vol_norm,
+            "",
+        ),
+        "pectin_exp_concs_exp_part_num_norm": Result(
+            pectin_exp_concentration_exp_part_num_norm,
+            "",
+        ),
+        "pectin_exp_concs_exp_part_vol_norm": Result(
+            pectin_exp_concentration_exp_part_vol_norm,
+            "",
         ),
         "calcium_chloride_concentration": Result(
             np.float64(calcium_chloride_concentration), "mmol/L"
@@ -153,55 +189,94 @@ def compute_capsule_concentrations(
 
 def recompute_pectin_concentrations(
     old_record: dict,
-    particle_th_concentration: float,
+    particle_th_ref_concentration: float,
+    particle_exp_ref_concentration: float,
     pectin_th_concentration: float,
     calcium_chloride_concentration: float,
 ) -> dict:
+
     new_record = old_record.copy()
+
+    pectin_experimental_concentration_th_part_in_number = compute_pectin_concentration(
+        particle_current_concentration=old_record[
+            "particle_concentration_in_number"
+        ].value,
+        particle_init_concentration=particle_th_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_experimental_concentration_th_part_in_volume = compute_pectin_concentration(
+        particle_current_concentration=old_record[
+            "particle_concentration_in_volume"
+        ].value,
+        particle_init_concentration=particle_th_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_experimental_concentration_exp_part_in_number = compute_pectin_concentration(
+        particle_current_concentration=old_record[
+            "particle_concentration_in_number"
+        ].value,
+        particle_init_concentration=particle_exp_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+    pectin_experimental_concentration_exp_part_in_volume = compute_pectin_concentration(
+        particle_current_concentration=old_record[
+            "particle_concentration_in_volume"
+        ].value,
+        particle_init_concentration=particle_exp_ref_concentration,
+        pectin_init_concentration=pectin_th_concentration,
+    )
+
     # fmt: off
-    pectin_experimental_concentration_in_number = (
-        compute_pectin_concentration(
-            particle_exp_concentration=old_record["particle_concentration_in_number"].value,
-            particle_th_concentration=particle_th_concentration,
-            pectin_th_concentration=pectin_th_concentration,
-        )
-    )
-    pectin_experimental_concentration_in_volume = (
-        compute_pectin_concentration(
-            particle_exp_concentration=old_record["particle_concentration_in_volume"].value,
-            particle_th_concentration=particle_th_concentration,
-            pectin_th_concentration=pectin_th_concentration,
-        )
-    )
-    
-    pectin_exp_concs_num_norm = (
-        pectin_experimental_concentration_in_number
+    pectin_exp_concs_th_part_num_norm = (
+        pectin_experimental_concentration_th_part_in_number
         / pectin_th_concentration
     )
-    pectin_exp_concs_vol_norm = (
-        pectin_experimental_concentration_in_volume
+    pectin_exp_concs_th_part_vol_norm = (
+        pectin_experimental_concentration_th_part_in_volume
+        / pectin_th_concentration
+    )
+    pectin_exp_concs_exp_part_num_norm = (
+        pectin_experimental_concentration_exp_part_in_number
+        / pectin_th_concentration
+    )
+    pectin_exp_concs_exp_part_vol_norm = (
+        pectin_experimental_concentration_exp_part_in_volume
         / pectin_th_concentration
     )
     # fmt: on
 
     new_values = {
+        "pectin_experimental_concentration_th_part_in_number": Result(
+            pectin_experimental_concentration_th_part_in_number, "g/L"
+        ),
+        "pectin_experimental_concentration_th_part_in_volume": Result(
+            pectin_experimental_concentration_th_part_in_volume, "g/L"
+        ),
         "pectin_experimental_concentration_in_number": Result(
-            pectin_experimental_concentration_in_number, "g/L"
+            pectin_experimental_concentration_exp_part_in_number, "g/L"
         ),
         "pectin_experimental_concentration_in_volume": Result(
-            pectin_experimental_concentration_in_volume, "g/L"
+            pectin_experimental_concentration_exp_part_in_volume, "g/L"
         ),
         "pectin_th_concentration": Result(
             np.float64(pectin_th_concentration),
             "g/L",
         ),
-        "pectin_exp_concs_num_norm": Result(
-            pectin_exp_concs_num_norm,
-            "g/L",
+        "pectin_exp_concs_th_part_num_norm": Result(
+            pectin_exp_concs_th_part_num_norm,
+            "",
         ),
-        "pectin_exp_concs_vol_norm": Result(
-            pectin_exp_concs_vol_norm,
-            "g/L",
+        "pectin_exp_concs_th_part_vol_norm": Result(
+            pectin_exp_concs_th_part_vol_norm,
+            "",
+        ),
+        "pectin_exp_concs_exp_part_num_norm": Result(
+            pectin_exp_concs_exp_part_num_norm,
+            "",
+        ),
+        "pectin_exp_concs_exp_part_vol_norm": Result(
+            pectin_exp_concs_exp_part_vol_norm,
+            "",
         ),
         "calcium_chloride_concentration": Result(
             np.float64(calcium_chloride_concentration), "mmol/L"

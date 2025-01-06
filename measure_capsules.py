@@ -205,7 +205,8 @@ def measure_capsules(
             ),
             capsule_diameter=capsule_diameter,
             capsule_volume=capsule_volume,
-            particle_th_concentration=config["particle_concentration"],
+            particle_th_ref_concentration=config["particle_concentration_th"],
+            particle_exp_ref_concentration=config["particle_concentration_exp"],
             pectin_th_concentration=config["pectin_concentration"],
             calcium_chloride_concentration=config["calcium_chloride_concentration"],
         )
@@ -245,7 +246,8 @@ def remake_records(path: Path | str) -> tuple[dict, pd.DataFrame]:
     for record in records_list:
         new_record = recompute_pectin_concentrations(
             old_record=record,
-            particle_th_concentration=config["particle_concentration"],
+            particle_th_ref_concentration=config["particle_concentration_th"],
+            particle_exp_ref_concentration=config["particle_concentration_exp"],
             pectin_th_concentration=config["pectin_concentration"],
             calcium_chloride_concentration=config["calcium_chloride_concentration"],
         )
