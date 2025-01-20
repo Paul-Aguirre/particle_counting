@@ -19,6 +19,7 @@ The supported file type are the following:
 """
 
 from pathlib import Path
+import pickle
 from pprint import pprint
 import tomllib
 from typing import Generator, Sequence, Literal
@@ -102,6 +103,9 @@ def load_image_stack(
     elif reader == "nd2":
         image_stack = nd2.imread(path)[zstart:zstop:zstep]
         with ND2Reader(str(path)) as images:
+            # this would have to change ideally
+            # it is a wacky fix for reading 8-bit converted nd2 files
+            # solution would be to just use nd2 library instead of nd2reader
             metadata = images.metadata
 
     else:
@@ -217,6 +221,17 @@ def get_metadata(path: str | Path) -> dict:
     return metadata
 
 
+def get_metadata_nd2_altenartive(path: str | Path) -> nd2.structures.Metadata:
+    metadata_dict = {}
+    with nd2.ND2File(path) as imagefile:
+        metadata_dict["metadata"] = imagefile.metadata
+        metadata_dict["attributes"] = imagefile.attributes
+        metadata_dict["experiment"] = imagefile.experiment
+        metadata_dict["text_info"] = imagefile.text_info
+        metadata_dict["events"] = imagefile.events()
+    return metadata_dict
+
+
 def pprint_metadata(path: Path | str) -> None:
     metadata = get_metadata(path)
     metadata["z_levels"] = metadata["z_levels"].stop
@@ -231,7 +246,7 @@ def pprint_metadata(path: Path | str) -> None:
         case 0.325:
             metadata["objective"] = "20x"
         case _:
-            metadata["objective"] = "not 20x"
+            metadata["objective"] = "not 20x"  # could be better
 
     not_printed_keys: list[str] = [
         "fields_of_view",
@@ -247,6 +262,11 @@ def pprint_metadata(path: Path | str) -> None:
         del metadata[key]
     print(f"Metadata of file '{path}':")
     pprint(metadata)
+
+
+def save_metadata(metadata_dict: dict, file: str | Path) -> None:
+    with open(file=file, mode="wb") as f:
+        pickle.dump(metadata_dict, f)
 
 
 def initialize_config(filename: Path | str, metadata: dict) -> None:
@@ -326,10 +346,16 @@ def check_config(
         datapath = path
     dirpath: Path = path.parent / f"{dataname}"
     configpath: Path = dirpath / f"{dataname}_config.toml"
+    metadata_path: Path = dirpath / f"{dataname}_metadata.pickle"
 
     if not dirpath.exists():
         dirpath.mkdir()
         print(f"Created directory '{dirpath}'.")
+
+    if not metadata_path.exists():
+        metadata_dict: dict = get_metadata_nd2_altenartive(datapath)
+        save_metadata(metadata_dict, metadata_path)
+        print(f"Created file '{metadata_path}'.")
 
     if not configpath.exists():
         metadata = get_metadata(datapath)
@@ -344,7 +370,12 @@ def check_config(
             print("Please edit the configuration file.")
             input("Press Enter to continue.")
 
-    return datapath, dirpath, configpath
+    return (
+        datapath,
+        dirpath,
+        configpath,
+        # metadata_path,
+    )
 
 
 def prepare_datafile(file: str | Path | Sequence[str | Path]) -> None:
