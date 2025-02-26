@@ -352,10 +352,11 @@ def check_config(
         dirpath.mkdir()
         print(f"Created directory '{dirpath}'.")
 
-    if not metadata_path.exists():
-        metadata_dict: dict = get_metadata_nd2_altenartive(datapath)
-        save_metadata(metadata_dict, metadata_path)
-        print(f"Created file '{metadata_path}'.")
+    # uncomment following section if you want to save file metadata
+    # if not metadata_path.exists():
+    #     metadata_dict: dict = get_metadata_nd2_altenartive(datapath)
+    #     save_metadata(metadata_dict, metadata_path)
+    #     print(f"Created file '{metadata_path}'.")
 
     if not configpath.exists():
         metadata = get_metadata(datapath)
@@ -492,7 +493,7 @@ def collect_capsules_results_from_csvs(
         get_save_path(datafile, suffix, "csv") for datafile in datafiles
     ]
     configs: list[dict] = []
-    metadata_list: list[dict] = []
+    metadata_dicts: list[dict] = []
     for datafile in datafiles:
         *_, configpath = check_config(path=datafile)
         with open(configpath, "rb") as f:
@@ -502,18 +503,34 @@ def collect_capsules_results_from_csvs(
                     del selection["patches"]
             configs.append(config)
 
+        metadata_path = get_save_path(
+            datapath=datafile,
+            suffix="metadata",
+            ext="pickle",
+        )
+        if metadata_path.exists():
+            with open(metadata_path, "rb") as f:
+                metadata = pickle.load(f)
+            metadata_dicts.append(metadata)
+        else:  # in case of missing metadata
+            default_metadata = {"text_info": {"date": None}}
+            metadata_dicts.append(default_metadata)
+
     dfs: list[pd.DataFrame] = []
     for (
         path,
         results_file,
         config,
+        metadata,
     ) in zip(
         datafiles,
         results_files,
         configs,
+        metadata_dicts,
     ):
         df_csv = pd.read_csv(results_file, header=0, index_col=0)
         df_csv["path"] = path
+        df_csv["recording_date"] = pd.Timestamp(metadata["text_info"]["date"])
         selections = config.pop("selections")
         df_selections = pd.DataFrame.from_records(selections)
         df_selections.rename(
@@ -536,6 +553,7 @@ def collect_capsules_results_from_csvs(
                 axis=0,
             )
         # necessary otherwise there is index mismatch
+
         df_extension.reset_index(inplace=True, drop=True)
         df_extension = pd.concat([df_extension, df_selections], axis=1)
         df_complete = pd.concat(
