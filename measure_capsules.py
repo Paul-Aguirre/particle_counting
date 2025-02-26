@@ -233,7 +233,7 @@ def remake_records(path: Path | str) -> tuple[dict, pd.DataFrame]:
 
     # * getting back the selections from the config file
     datapath, dirpath, configpath = check_config(path)
-    print(f"Analysing '{str(datapath)}'.")
+    # print(f"Analysing '{str(datapath)}'.")
     with open(configpath, "rb") as f:
         config = tomllib.load(f)
 
@@ -352,6 +352,12 @@ def main() -> None:
         help="Converts the input images to 8-bit images before processing. "
         "Incompatible with flag '--recompute'.",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="When raised, prints information about saved files.",
+    )
     args = parser.parse_args()
     if args.recompute and args.convert_to_8bit:
         # fmt: off
@@ -392,12 +398,14 @@ def main() -> None:
                 datapath=datapath,
                 suffix=f"region_properties_no_{i}",
             )
-            print(
-                f"\nCapsule no.{i} tracer region properties saved to\n"
-                f'"{save_props_path}".'
-            )
+            if args.verbose:
+                print(
+                    f"\nCapsule no.{i} tracer region properties saved to\n"
+                    f'"{save_props_path}".'
+                )
 
-    print_capsule_records(capsules_records)
+    if args.verbose:
+        print_capsule_records(capsules_records)
 
     if args.show_plots:
         plt.show()
@@ -407,14 +415,16 @@ def main() -> None:
         datapath=datapath,
         suffix="capsule_records",
     )
-    print(f'\nCapsule measurements results saved to\n"{save_records_path}".')
+    if args.verbose:
+        print(f'\nCapsule measurements results saved to\n"{save_records_path}".')
 
     save_records_path_csv = df_to_csv(
         df_records=df_capsules_records,
         datapath=datapath,
         suffix="capsule_records",
     )
-    print(f'\nCapsule measurements results saved to\n"{save_records_path_csv}".')
+    if args.verbose:
+        print(f'\nCapsule measurements results saved to\n"{save_records_path_csv}".')
 
 
 if __name__ == "__main__":
