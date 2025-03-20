@@ -9,6 +9,7 @@ dependencies = [
     "numpy",
     "pandas",
     "scipy",
+    "seaborn",
     "matplotlib",
     "nd2",
     "nd2reader",
