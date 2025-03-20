@@ -1,7 +1,8 @@
+from datetime import datetime
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
-from datetime import datetime
 
 
 def generate_image_stack(
@@ -97,44 +98,49 @@ def generate_image_stack(
     return img_stack, metadata
 
 
-# Example usage:
-width = 128  # Image width in pixels
-height = 128  # Image height in pixels
-pixel_size = 0.353  # Pixel size in micrometers
-num_slices = 40  # Number of z-slices
-z_step = 0.6  # Step size along the z-axis in micrometers
-microsphere_size = 1  # Diameter of microspheres in micrometers
-microsphere_count = 40  # Number of microspheres in the volume
-blur_sigma_x = 1.0  # Spread in x-direction (Gaussian sigma in pixels)
-blur_sigma_y = 1.0  # Spread in y-direction (Gaussian sigma in pixels)
-blur_sigma_z = 3.0  # Elongation in z-direction (Gaussian sigma in pixels)
+def main():
+    # Example usage:
+    width = 128  # Image width in pixels
+    height = 128  # Image height in pixels
+    pixel_size = 0.353  # Pixel size in micrometers
+    num_slices = 40  # Number of z-slices
+    z_step = 0.6  # Step size along the z-axis in micrometers
+    microsphere_size = 1  # Diameter of microspheres in micrometers
+    microsphere_count = 40  # Number of microspheres in the volume
+    blur_sigma_x = 1.0  # Spread in x-direction (Gaussian sigma in pixels)
+    blur_sigma_y = 1.0  # Spread in y-direction (Gaussian sigma in pixels)
+    blur_sigma_z = 3.0  # Elongation in z-direction (Gaussian sigma in pixels)
 
-# Generate the image stack (grayscale) and metadata
-img_stack, metadata = generate_image_stack(
-    width=width,
-    height=height,
-    pixel_size=pixel_size,
-    num_slices=num_slices,
-    z_step=z_step,
-    microsphere_size=microsphere_size,
-    microsphere_count=microsphere_count,
-    blur_sigma_x=blur_sigma_x,
-    blur_sigma_y=blur_sigma_y,
-    blur_sigma_z=blur_sigma_z,
-    grayscale=True,  # Change to False for binary images
-)
+    # Generate the image stack (grayscale) and metadata
+    img_stack, metadata = generate_image_stack(
+        width=width,
+        height=height,
+        pixel_size=pixel_size,
+        num_slices=num_slices,
+        z_step=z_step,
+        microsphere_size=microsphere_size,
+        microsphere_count=microsphere_count,
+        blur_sigma_x=blur_sigma_x,
+        blur_sigma_y=blur_sigma_y,
+        blur_sigma_z=blur_sigma_z,
+        grayscale=True,  # Change to False for binary images
+    )
 
-# Visualize some slices from the generated image stack
-# fig, axes = plt.subplots(1, 5, figsize=(15, 3))
-# for i, ax in enumerate(axes):
-#     slice_idx = i * num_slices // 5
-#     ax.imshow(img_stack[slice_idx], cmap="gray", vmin=0, vmax=65535)
-#     ax.set_title(f"Z-slice {slice_idx}")
-#     ax.axis("off")
-# plt.tight_layout()
-# plt.show()
+    # Visualize some slices from the generated image stack
+    # fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+    # for i, ax in enumerate(axes):
+    #     slice_idx = i * num_slices // 5
+    #     ax.imshow(img_stack[slice_idx], cmap="gray", vmin=0, vmax=65535)
+    #     ax.set_title(f"Z-slice {slice_idx}")
+    #     ax.axis("off")
+    # plt.tight_layout()
+    # plt.show()
 
-# Print metadata
-print("Metadata:")
-for key, value in metadata.items():
-    print(f"{key}: {value}")
+    # Print metadata
+    print("Metadata:")
+    for key, value in metadata.items():
+        print(f"{key}: {value}")
+
+
+if __name__ == "__main__":
+    main()
