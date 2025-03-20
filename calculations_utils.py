@@ -11,7 +11,7 @@ def compute_stack_total_volume(metadata: dict) -> np.float64:
         * metadata["height"]
         * metadata["pixel_microns"] ** 2
     )
-    return total_volume
+    return total_volume  # in um^3
 
 
 def compute_particle_concentration_in_number(
